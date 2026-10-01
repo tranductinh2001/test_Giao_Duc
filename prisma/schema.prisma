@@ -1,0 +1,1854 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                    String                   @id @default(uuid())
+  name                  String
+  email                 String                   @unique
+  password              String?
+  role                  Role                     @default(LEARNER)
+  status                UserStatus               @default(ACTIVE)
+  licenseExpiresAt      DateTime?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  badges                String[]
+  lastActiveDate        DateTime?
+  level                 Int                      @default(1)
+  streak                Int                      @default(0)
+  xp                    Int                      @default(0)
+  lastResetDate         DateTime                 @default(now())
+  monthlyReviewsUsed    Int                      @default(0)
+  pricingTier           PricingTier              @default(FREE)
+  subscriptionEndDate   DateTime?
+  subscriptionStartDate DateTime?
+  accounts              Account[]
+  resolvedAnnotations   Annotation[]
+  bookmarks             Bookmark[]
+  DocumentComment       DocumentComment[]
+  DocumentSession       DocumentSession[]
+  DocumentVersion       DocumentVersion[]
+  customExams           Exam[]
+  examAttempts          ExamAttempt[]
+  exportHistory         ExportHistory[]
+  feedbacks             Feedback[]
+  lessonPlans           LessonPlan[]
+  invitedCollaborators  LessonPlanCollaborator[] @relation("LessonPlanInviter")
+  collaborations        LessonPlanCollaborator[] @relation("LessonPlanCollaborators")
+  lessonPlanVersions    LessonPlanVersion[]
+  activatedLicenses     License[]                @relation("ActivatedBy")
+  passwordResetTokens   PasswordResetToken[]
+  reviewHistory         ReviewHistory[]
+  reviewedResults       ReviewResult[]
+  createdRuleSets       ReviewRuleSet[]
+  createdSectionRules   SectionRule[]
+  sessions              Session[]
+  usageLogs             UsageLog[]
+  questionProgress      UserQuestionProgress[]
+  wrongAnswers          UserWrongAnswer[]
+
+  @@index([email])
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model LoginAttempt {
+  id         String   @id @default(uuid())
+  userId     String?
+  email      String
+  ipAddress  String
+  userAgent  String?
+  success    Boolean
+  failReason String?
+  createdAt  DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  event     String
+  details   Json?
+  ipAddress String
+  userAgent String?
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([event, createdAt])
+  @@index([ipAddress, createdAt])
+}
+
+model Recruitment {
+  id                  String            @id @default(uuid())
+  title               String
+  field               String?
+  recruitmentType     String?
+  status              RecruitmentStatus @default(OPEN)
+  recruitmentYear     Int?
+  province            String
+  district            String?
+  ward                String?
+  organization        String
+  applicationAddress  String?
+  totalQuota          Int               @default(1)
+  quotaDetails        Json?
+  round1Format        String?
+  round2Format        String?
+  applicationStartDate DateTime?
+  applicationEndDate  DateTime?
+  notes               String?
+  createdBy           String
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([province])
+  @@index([status])
+  @@index([applicationEndDate])
+  @@index([createdAt])
+}
+
+model License {
+  id                String        @id @default(uuid())
+  code              String        @unique
+  durationDays      Int
+  status            LicenseStatus @default(UNUSED)
+  activatedAt       DateTime?
+  activatedByUserId String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  activatedBy       User?         @relation("ActivatedBy", fields: [activatedByUserId], references: [id])
+
+  @@index([code])
+}
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+  parentId    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  parent      Category?  @relation("SubCategories", fields: [parentId], references: [id])
+  children    Category[] @relation("SubCategories")
+  exams       Exam[]
+  questions   Question[]
+
+  @@index([parentId])
+}
+
+model Question {
+  id             String                 @id @default(uuid())
+  content        String
+  explanation    String?
+  difficulty     Difficulty             @default(MEDIUM)
+  categoryId     String
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  bookmarks      Bookmark[]
+  choices        Choice[]
+  attemptAnswers ExamAttemptAnswer[]
+  examQuestions  ExamQuestion[]
+  category       Category               @relation(fields: [categoryId], references: [id])
+  stats          QuestionStats?
+  userProgress   UserQuestionProgress[]
+  wrongAnswers   UserWrongAnswer[]
+
+  @@index([categoryId])
+  @@index([difficulty])
+  @@index([categoryId, difficulty])
+}
+
+model Choice {
+  id             String              @id @default(uuid())
+  questionId     String
+  content        String
+  isCorrect      Boolean             @default(false)
+  question       Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  attemptAnswers ExamAttemptAnswer[]
+}
+
+model Exam {
+  id            String         @id @default(uuid())
+  title         String
+  description   String?
+  timeLimit     Int
+  isPublished   Boolean        @default(false)
+  matrix        Json?
+  categoryId    String?
+  isCustom      Boolean        @default(false)
+  userId        String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  user          User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempts      ExamAttempt[]
+  examQuestions ExamQuestion[]
+
+  @@index([isPublished, categoryId])
+  @@index([userId, isCustom])
+}
+
+model ExamQuestion {
+  examId     String
+  questionId String
+  sortOrder  Int
+  exam       Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([examId, questionId])
+}
+
+model ExamAttempt {
+  id           String              @id @default(uuid())
+  userId       String
+  examId       String
+  score        Float
+  correctCount Int
+  totalCount   Int
+  startedAt    DateTime            @default(now())
+  submittedAt  DateTime?
+  status       AttemptStatus       @default(IN_PROGRESS)
+  savedAnswers Json?
+  timeSpent    Int?
+  exam         Exam                @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers      ExamAttemptAnswer[]
+
+  @@index([userId])
+  @@index([examId])
+  @@index([status])
+  @@index([userId, status])
+  @@index([startedAt])
+}
+
+model ExamAttemptAnswer {
+  id               String      @id @default(uuid())
+  attemptId        String
+  questionId       String
+  selectedChoiceId String?
+  isCorrect        Boolean     @default(false)
+  timeSpent        Int?
+  attempt          ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question         Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  choice           Choice?     @relation(fields: [selectedChoiceId], references: [id])
+
+  @@index([attemptId])
+  @@index([questionId])
+}
+
+model UserWrongAnswer {
+  id             String   @id @default(uuid())
+  userId         String
+  questionId     String
+  wrongCount     Int      @default(1)
+  lastAnsweredAt DateTime @default(now())
+  question       Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId, wrongCount])
+}
+
+model Bookmark {
+  id         String   @id @default(uuid())
+  userId     String
+  questionId String
+  createdAt  DateTime @default(now())
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId])
+}
+
+model UserQuestionProgress {
+  id               String    @id @default(uuid())
+  userId           String
+  questionId       String
+  timesEncountered Int       @default(0)
+  timesCorrect     Int       @default(0)
+  timesWrong       Int       @default(0)
+  accuracy         Float     @default(0)
+  avgTimeSpent     Float?
+  lastReviewedAt   DateTime?
+  masteryLevel     Int       @default(0)
+  nextReviewDate   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  question         Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId, masteryLevel])
+  @@index([userId, nextReviewDate])
+}
+
+model QuestionStats {
+  id                   String   @id @default(uuid())
+  questionId           String   @unique
+  totalAttempts        Int      @default(0)
+  correctCount         Int      @default(0)
+  wrongCount           Int      @default(0)
+  successRate          Float    @default(0)
+  avgTimeSpent         Float?
+  calculatedDifficulty String?
+  updatedAt            DateTime @updatedAt
+  question             Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([successRate])
+  @@index([calculatedDifficulty])
+}
+
+model Feedback {
+  id         String         @id @default(uuid())
+  userId     String
+  subject    String
+  message    String
+  category   String?
+  status     FeedbackStatus @default(PENDING)
+  adminNote  String?
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Announcement {
+  id        String    @id @default(uuid())
+  content   String
+  isActive  Boolean   @default(true)
+  priority  Int       @default(0)
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  createdBy String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([priority])
+  @@index([startDate])
+}
+
+model LessonPlan {
+  id                   String                   @id @default(uuid())
+  userId               String
+  title                String
+  subject              String?
+  gradeLevel           String?
+  schoolYear           String?
+  circularId           String?
+  textbookBookId       String?                  // Optional - can be linked to a textbook
+  textbookLessonTitle  String?                  // Title of the lesson in the textbook
+  originalFilename     String
+  filePath             String
+  fileSize             BigInt
+  mimeType             String
+  status               LessonPlanStatus         @default(UPLOADED)
+  currentVersion       Int                      @default(1)
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  deletedAt            DateTime?
+  aiRequests           AIRequest[]
+  DocumentComment      DocumentComment[]
+  DocumentSession      DocumentSession[]
+  DocumentVersion      DocumentVersion[]
+  exportHistory        ExportHistory[]
+  user                 User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collaborators        LessonPlanCollaborator[]
+  sections             LessonPlanSection[]
+  versions             LessonPlanVersion[]
+  reviewHistory        ReviewHistory[]
+  reviewResults        ReviewResult[]
+  usageLogs            UsageLog[]
+  circular             CircularDocument?        @relation(fields: [circularId], references: [id])
+  textbookBook         TextbookBook?            @relation(fields: [textbookBookId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@index([circularId])
+  @@index([textbookBookId])
+}
+
+model LessonPlanCollaborator {
+  id           String           @id @default(uuid())
+  lessonPlanId String
+  userId       String
+  role         CollaboratorRole @default(VIEWER)
+  addedBy      String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  inviter      User             @relation("LessonPlanInviter", fields: [addedBy], references: [id], onDelete: Cascade)
+  lessonPlan   LessonPlan       @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  user         User             @relation("LessonPlanCollaborators", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonPlanId, userId])
+  @@index([lessonPlanId])
+  @@index([userId])
+}
+
+model LessonPlanVersion {
+  id            String     @id @default(uuid())
+  lessonPlanId  String
+  versionNumber Int
+  filePath      String
+  fileSize      BigInt
+  changeSummary String?
+  createdBy     String
+  createdAt     DateTime   @default(now())
+  creator       User       @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  lessonPlan    LessonPlan @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonPlanId, versionNumber])
+  @@index([lessonPlanId])
+}
+
+model LessonPlanSection {
+  id              String            @id @default(uuid())
+  lessonPlanId    String
+  versionNumber   Int
+  sectionType     String
+  sectionTitle    String?
+  sectionOrder    Int
+  contentType     ContentType       @default(TEXT)
+  rawContent      String
+  parsedContent   Json?
+  wordCount       Int?
+  charCount       Int?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  metadata        Json?
+  aiRequests      AIRequest[]
+  annotations     Annotation[]
+  DocumentComment DocumentComment[]
+  lessonPlan      LessonPlan        @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+
+  @@index([lessonPlanId])
+  @@index([sectionType])
+  @@index([sectionOrder])
+}
+
+model ReviewRuleSet {
+  id            String         @id @default(uuid())
+  name          String
+  description   String?
+  code          String         @unique
+  version       String         @default("1.0")
+  scope         String?
+  isActive      Boolean        @default(true)
+  isDefault     Boolean        @default(false)
+  createdBy     String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  aiRequests    AIRequest[]
+  reviewResults ReviewResult[]
+  rules         ReviewRule[]
+  creator       User           @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([isActive])
+  @@index([isDefault])
+}
+
+model ReviewRule {
+  id                 String        @id @default(uuid())
+  ruleSetId          String
+  ruleCode           String
+  ruleName           String
+  description        String?
+  category           String?
+  severity           Severity      @default(WARNING)
+  priority           Int           @default(0)
+  applicableSections Json?
+  aiPrompt           String
+  validationCriteria Json?
+  correctExamples    String?
+  incorrectExamples  String?
+  isActive           Boolean       @default(true)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  annotations        Annotation[]
+  ruleSet            ReviewRuleSet @relation(fields: [ruleSetId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleSetId, ruleCode])
+  @@index([ruleSetId])
+  @@index([category])
+  @@index([severity])
+  @@index([priority])
+  @@index([isActive])
+}
+
+model AIRequest {
+  id           String             @id @default(uuid())
+  lessonPlanId String
+  sectionId    String?
+  ruleSetId    String?
+  requestType  AIRequestType
+  prompt       String
+  inputTokens  Int?
+  modelName    String             @default("gemini-1.5-pro")
+  status       AIRequestStatus    @default(PENDING)
+  errorMessage String?
+  cacheKey     String?
+  createdAt    DateTime           @default(now())
+  completedAt  DateTime?
+  lessonPlan   LessonPlan         @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  ruleSet      ReviewRuleSet?     @relation(fields: [ruleSetId], references: [id], onDelete: Cascade)
+  section      LessonPlanSection? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  response     AIResponse?
+
+  @@index([lessonPlanId])
+  @@index([sectionId])
+  @@index([status])
+  @@index([cacheKey])
+  @@index([createdAt])
+}
+
+model AIResponse {
+  id               String    @id @default(uuid())
+  requestId        String    @unique
+  responseData     Json
+  outputTokens     Int?
+  processingTimeMs Int?
+  createdAt        DateTime  @default(now())
+  request          AIRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}
+
+model ReviewResult {
+  id                       String          @id @default(uuid())
+  lessonPlanId             String
+  ruleSetId                String?
+  overallScore             Decimal?        @db.Decimal(5, 2)
+  totalIssues              Int             @default(0)
+  criticalIssues           Int             @default(0)
+  errorIssues              Int             @default(0)
+  warningIssues            Int             @default(0)
+  infoIssues               Int             @default(0)
+  strengths                Json?
+  weaknesses               Json?
+  missingContent           Json?
+  suggestions              Json?
+  status                   ReviewStatus    @default(DRAFT)
+  reviewedBy               String?
+  reviewedAt               DateTime?
+  teachingMethodAnalysis   Json?           // AI teaching method analysis result
+  teachingMethodScore      Decimal?        @db.Decimal(5, 2) // Score for teaching method quality
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+  metadata                 Json?
+  annotations              Annotation[]
+  exportHistory            ExportHistory[]
+  lessonPlan               LessonPlan      @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  reviewer                 User?           @relation(fields: [reviewedBy], references: [id])
+  ruleSet                  ReviewRuleSet?  @relation(fields: [ruleSetId], references: [id], onDelete: Cascade)
+
+  @@index([lessonPlanId])
+  @@index([ruleSetId])
+  @@index([status])
+  @@index([overallScore])
+}
+
+model Annotation {
+  id              String            @id @default(uuid())
+  reviewResultId  String
+  sectionId       String
+  ruleId          String?
+  annotationType  AnnotationType
+  severity        Severity
+  startPosition   Int
+  endPosition     Int
+  highlightedText String?
+  message         String
+  explanation     String?
+  suggestion      String?
+  proposedContent String?
+  status          AnnotationStatus  @default(PENDING)
+  resolvedBy      String?
+  resolvedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  resolver        User?             @relation(fields: [resolvedBy], references: [id])
+  reviewResult    ReviewResult      @relation(fields: [reviewResultId], references: [id], onDelete: Cascade)
+  rule            ReviewRule?       @relation(fields: [ruleId], references: [id])
+  section         LessonPlanSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  DocumentComment DocumentComment[]
+
+  @@index([reviewResultId])
+  @@index([sectionId])
+  @@index([ruleId])
+  @@index([annotationType])
+  @@index([severity])
+  @@index([status])
+}
+
+model SectionRule {
+  id               String         @id @default(uuid())
+  circularId       String?
+  sectionType      String
+  title            String
+  requirements     String
+  correctExample   String?
+  incorrectExample String?
+  aiPrompt         String
+  priority         Int            @default(0)
+  weight           Float          @default(1.0)
+  level            Int            @default(3)  // 1=mục lớn, 2=mục nhỏ, 3=section, 4=subsection
+  order            Int            @default(0)
+  isActive         Boolean        @default(true)
+  createdBy        String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  creator          User           @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  circular         CircularDocument? @relation(fields: [circularId], references: [id], onDelete: Cascade)
+  parent           SectionRule?   @relation("SectionRuleHierarchy", fields: [parentId], references: [id])
+  parentId         String?
+  children         SectionRule[]  @relation("SectionRuleHierarchy")
+
+  @@index([sectionType])
+  @@index([isActive])
+  @@index([priority])
+  @@index([sectionType, isActive])
+  @@index([circularId])
+  @@index([parentId])
+  @@index([level])
+  @@index([order])
+}
+
+model ExportHistory {
+  id                  String        @id @default(uuid())
+  lessonPlanId        String
+  reviewResultId      String?
+  exportFormat        ExportFormat
+  filePath            String
+  fileSize            BigInt
+  includeAnnotations  Boolean       @default(true)
+  includeTrackChanges Boolean       @default(true)
+  exportedBy          String
+  createdAt           DateTime      @default(now())
+  exporter            User          @relation(fields: [exportedBy], references: [id], onDelete: Cascade)
+  lessonPlan          LessonPlan    @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  reviewResult        ReviewResult? @relation(fields: [reviewResultId], references: [id])
+
+  @@index([lessonPlanId])
+  @@index([reviewResultId])
+  @@index([exportedBy])
+  @@index([createdAt])
+}
+
+model ReviewHistory {
+  id             String           @id @default(uuid())
+  lessonPlanId   String
+  reviewResultId String?
+  actionType     ReviewActionType
+  actionData     Json?
+  performedBy    String
+  createdAt      DateTime         @default(now())
+  lessonPlan     LessonPlan       @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  performer      User             @relation(fields: [performedBy], references: [id], onDelete: Cascade)
+
+  @@index([lessonPlanId])
+  @@index([reviewResultId])
+  @@index([actionType])
+  @@index([performedBy])
+  @@index([createdAt])
+}
+
+model UsageLog {
+  id            String      @id @default(uuid())
+  userId        String
+  lessonPlanId  String?
+  operationType String
+  modelUsed     String
+  inputTokens   Int
+  outputTokens  Int
+  totalCost     Float
+  success       Boolean     @default(true)
+  errorMessage  String?
+  createdAt     DateTime    @default(now())
+  lessonPlan    LessonPlan? @relation(fields: [lessonPlanId], references: [id])
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([lessonPlanId])
+}
+
+model SystemConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  description String?
+  updatedBy   String?
+  updatedAt   DateTime @default(now())
+
+  @@index([key])
+}
+
+model EvaluationCriteria {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  level       String
+  category    String
+  description String?
+  maxScore    Float
+  criteria    Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([code])
+  @@index([level])
+  @@index([isActive])
+  @@index([level, category])
+}
+
+model CircularDocument {
+  id                  String                       @id @default(uuid())
+  code                String                       @unique
+  title               String
+  type                CircularType                 @default(GUIDELINE)
+  content             String
+  summary             String?
+  issuedDate          DateTime
+  effectiveDate       DateTime?
+  applicableLevel     String[]
+  applicableSubjects  String[]
+  fileUrl             String?
+  isActive            Boolean                      @default(true)
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
+  sectionRequirements CircularSectionRequirement[]
+  sectionRules        SectionRule[]
+  lessonPlans         LessonPlan[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([applicableLevel])
+}
+
+model SystemTheme {
+  id        String   @id @default(cuid())
+  theme     Json
+  updatedBy String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([updatedAt])
+}
+
+model CircularSectionRequirement {
+  id               String           @id @default(uuid())
+  circularId       String
+  sectionType      String
+  title            String
+  requirements     String
+  correctExample   String?
+  incorrectExample String?
+  priority         Int              @default(0)
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  aiPrompt         String?
+  circular         CircularDocument @relation(fields: [circularId], references: [id], onDelete: Cascade)
+
+  @@unique([circularId, sectionType])
+  @@index([circularId])
+  @@index([sectionType])
+  @@index([isActive])
+}
+
+model DocumentComment {
+  id                String             @id
+  lessonPlanId      String
+  sectionId         String?
+  annotationId      String?
+  paragraphId       String?
+  startOffset       Int?
+  endOffset         Int?
+  commentText       String
+  status            CommentStatus      @default(PENDING)
+  severity          String
+  reason            String?
+  suggestion        String?
+  rewriteContent    String?
+  hasTrackChange    Boolean            @default(false)
+  changeType        String?
+  createdBy         String
+  resolvedBy        String?
+  resolvedAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime
+  Annotation        Annotation?        @relation(fields: [annotationId], references: [id])
+  LessonPlan        LessonPlan         @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  User              User?              @relation(fields: [resolvedBy], references: [id])
+  LessonPlanSection LessonPlanSection? @relation(fields: [sectionId], references: [id])
+
+  @@index([annotationId])
+  @@index([lessonPlanId])
+  @@index([sectionId])
+  @@index([status])
+}
+
+model DocumentSession {
+  id           String                @id
+  lessonPlanId String
+  documentKey  String                @unique
+  fileUrl      String
+  userId       String
+  status       DocumentSessionStatus @default(EDITING)
+  callbackUrl  String?
+  title        String
+  fileType     String                @default("docx")
+  editingUsers String[]
+  lastModified DateTime
+  version      Int                   @default(1)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime
+  LessonPlan   LessonPlan            @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  User         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([documentKey])
+  @@index([lessonPlanId])
+  @@index([userId])
+}
+
+model DocumentVersion {
+  id            String     @id
+  lessonPlanId  String
+  versionNumber Int
+  filePath      String
+  fileUrl       String
+  fileSize      BigInt
+  fileHash      String
+  changeSummary String?
+  changesCount  Int        @default(0)
+  commentsCount Int        @default(0)
+  createdBy     String
+  isPublished   Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  User          User       @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  LessonPlan    LessonPlan @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonPlanId, versionNumber])
+  @@index([createdBy])
+  @@index([lessonPlanId])
+}
+
+model rule_change_versions {
+  id         String   @id
+  ruleType   String
+  ruleId     String
+  version    Int
+  data       Json
+  changedBy  String?
+  changeNote String?
+  createdAt  DateTime @default(now())
+
+  @@index([ruleType, ruleId])
+  @@index([version])
+}
+
+model rule_template_sections {
+  id                      String                    @id
+  templateId              String
+  code                    String
+  name                    String
+  aliases                 String?                   // JSON array of alternative names: ["Mục tiêu", "Muc tieu", "Mục tiêu bài học"]
+  order                   Int
+  isRequired              Boolean                   @default(true)
+  isRepeatable            Boolean                   @default(false)
+  numberingStyle          String?
+  headingLevel            Int?
+  parentId                String?
+  level                   Int                       @default(1)
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime
+  rule_templates          rule_templates            @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  parent                  rule_template_sections?   @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children                rule_template_sections[]  @relation("SectionHierarchy")
+  section_content_rules   section_content_rules[]
+  section_parser_rules    section_parser_rules[]
+  section_structure_rules section_structure_rules[]
+
+  @@unique([templateId, code])
+  @@index([templateId, order])
+  @@index([parentId])
+}
+
+model rule_templates {
+  id                      String                    @id
+  code                    String                    @unique
+  name                    String
+  description             String?
+  category                String?
+  isActive                Boolean                   @default(true)
+  isDefault               Boolean                   @default(false)
+  version                 Int                       @default(1)
+  createdBy               String?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime
+  rule_template_sections  rule_template_sections[]
+  section_content_rules   section_content_rules[]
+  section_fix_rules       section_fix_rules[]
+  section_parser_rules    section_parser_rules[]
+  section_scoring_rules   section_scoring_rules[]
+  section_structure_rules section_structure_rules[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+model rule_usage_history {
+  id             String        @id
+  ruleType       String
+  ruleId         String
+  lessonPlanId   String
+  sectionId      String?
+  matched        Boolean
+  confidence     Float?
+  aiUsed         Boolean       @default(false)
+  executionTime  Int?
+  userFeedback   FeedbackType?
+  improvedRuleId String?
+  createdAt      DateTime      @default(now())
+
+  @@index([aiUsed])
+  @@index([lessonPlanId])
+  @@index([ruleId, matched])
+}
+
+model section_content_rules {
+  id                     String                 @id
+  templateId             String
+  sectionId              String
+  code                   String
+  name                   String
+  description            String?
+  checkType              ContentCheckType
+  severity               RuleSeverity
+  systemPrompt           String
+  userPrompt             String
+  criteria               Json?
+  penaltyScore           Int                    @default(0)
+  useAI                  Boolean                @default(true)
+  aiModel                String                 @default("gemini-3.1-flash-lite")
+  maxTokens              Int?                   @default(500)
+  temperature            Float?                 @default(0.3)
+  isActive               Boolean                @default(true)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime
+  rule_template_sections rule_template_sections @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  rule_templates         rule_templates         @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([checkType])
+  @@index([templateId, sectionId])
+}
+
+model section_fix_rules {
+  id               String         @id
+  templateId       String
+  code             String
+  name             String
+  description      String?
+  issueType        String
+  issueSeverity    RuleSeverity
+  fixType          FixType
+  fixTemplate      String?
+  aiPrompt         String?
+  aiModel          String?        @default("gemini-3.1-flash-lite")
+  instructions     String?
+  autoApply        Boolean        @default(false)
+  requiresApproval Boolean        @default(true)
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime
+  rule_templates   rule_templates @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, issueType])
+}
+
+model section_parser_rules {
+  id                     String                 @id
+  templateId             String
+  sectionId              String
+  type                   ParserType
+  pattern                String
+  priority               Int                    @default(100)
+  ignoreCase             Boolean                @default(true)
+  ignoreAccent           Boolean                @default(true)
+  ignoreSpace            Boolean                @default(false)
+  normalizeText          Boolean                @default(true)
+  fuzzyThreshold         Float?
+  aliases                String[]
+  isActive               Boolean                @default(true)
+  confidence             Float                  @default(1.0)
+  learnedFromAI          Boolean                @default(false)
+  usageCount             Int                    @default(0)
+  successCount           Int                    @default(0)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime
+  rule_template_sections rule_template_sections @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  rule_templates         rule_templates         @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([priority])
+  @@index([sectionId])
+  @@index([templateId, type])
+}
+
+model section_scoring_rules {
+  id             String         @id
+  templateId     String
+  code           String
+  name           String
+  description    String?
+  issueType      String
+  severity       RuleSeverity
+  penalty        Int
+  conditions     Json?
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime
+  rule_templates rule_templates @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([severity])
+  @@index([templateId, issueType])
+}
+
+model section_structure_rules {
+  id                     String                  @id
+  templateId             String
+  sectionId              String?
+  code                   String
+  name                   String
+  description            String?
+  type                   StructureCheckType
+  severity               RuleSeverity
+  expectedValue          Json?
+  allowedValues          Json?
+  penaltyScore           Int                     @default(0)
+  errorMessage           String?
+  suggestionText         String?
+  isActive               Boolean                 @default(true)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime
+  rule_template_sections rule_template_sections? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  rule_templates         rule_templates          @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([severity])
+  @@index([templateId, type])
+}
+
+enum Role {
+  ADMIN
+  LEARNER
+}
+
+enum PricingTier {
+  FREE
+  BASIC
+  PREMIUM
+  UNLIMITED
+}
+
+enum UserStatus {
+  ACTIVE
+  LOCKED
+  INACTIVE
+}
+
+enum LicenseStatus {
+  UNUSED
+  ACTIVATED
+  EXPIRED
+  REVOKED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  SYSTEM_SUBMITTED
+  ABANDONED
+}
+
+enum FeedbackStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+enum RecruitmentStatus {
+  OPEN
+  CLOSED
+  UPCOMING
+}
+
+enum LessonPlanStatus {
+  UPLOADED
+  PARSING
+  PARSED
+  REVIEWING
+  REVIEWED
+  EDITING
+  COMPLETED
+  FAILED
+}
+
+enum ContentType {
+  TEXT
+  TABLE
+  LIST
+  IMAGE
+}
+
+enum ReviewStatus {
+  DRAFT
+  COMPLETED
+  ACCEPTED
+  REJECTED
+}
+
+enum AnnotationType {
+  COMMENT
+  WARNING
+  SUGGESTION
+  ERROR
+  IMPROVEMENT
+}
+
+enum Severity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum AnnotationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  RESOLVED
+}
+
+enum AIRequestType {
+  PARSE
+  REVIEW
+  ANNOTATE
+  SUGGEST
+}
+
+enum AIRequestStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CACHED
+}
+
+enum ExportFormat {
+  DOCX
+  PDF
+}
+
+enum ReviewActionType {
+  CREATED
+  PARSED
+  REVIEWED
+  EDITED
+  ANNOTATION_ADDED
+  ANNOTATION_ACCEPTED
+  ANNOTATION_REJECTED
+  EXPORTED
+  COMPLETED
+  RESTORED
+  BULK_DELETED
+  BULK_RESTORED
+  FAILED
+}
+
+enum CollaboratorRole {
+  VIEWER
+  EDITOR
+}
+
+enum CircularType {
+  GUIDELINE
+  REGULATION
+  STANDARD
+  CURRICULUM
+}
+
+enum CommentStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  RESOLVED
+}
+
+enum ContentCheckType {
+  PRESENCE
+  QUALITY
+  COMPLETENESS
+}
+
+enum DocumentSessionStatus {
+  EDITING
+  SAVING
+  CLOSED
+  ERROR
+}
+
+enum FeedbackType {
+  CORRECT
+  INCORRECT
+  IMPROVED
+}
+
+enum FixType {
+  TEMPLATE
+  AI_ASSISTED
+  MANUAL
+}
+
+enum ParserType {
+  KEYWORD
+  REGEX
+  FUZZY
+}
+
+enum RuleSeverity {
+  ERROR
+  WARNING
+  INFO
+}
+
+enum StructureCheckType {
+  HEADING
+  NUMBERING
+  FORMAT
+  ORDER
+  STYLE
+}
+
+// ============================================
+// TEXTBOOK MODELS (existing)
+// ============================================
+
+model TextbookBook {
+  id            String   @id @default(uuid())
+  code          String
+  version       Int      @default(1) // Version number
+  name          String
+  description   String?
+  subject       String?  // Subject (e.g., "Toán", "Tiếng Việt")
+  grade         String?  // Grade level (e.g., "Lớp 1")
+  isActive      Boolean  @default(true)
+  isApproved    Boolean  @default(false) // Approval status
+  approvedAt    DateTime?
+  approvedBy    String?
+  tocStatus     String   @default("PENDING") // TOC status: PENDING, PROCESSING, COMPLETED, FAILED
+  tocSource     String?  // TOC source: IMPORT, MANUAL, AI
+  pdfPath       String?  // Path to the PDF file
+  fileSize      BigInt?  // File size in bytes
+  fileHash      String?  // File hash for deduplication
+  pageCount     Int?     // Total pages in the textbook
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  chapters        TextbookChapter[]
+  teachingMethods TextbookTeachingMethod[]
+  lessonMethods   LessonTeachingMethod[]
+  indexJobs      TextbookIndexJob[]
+  lessonPlans    LessonPlan[]
+
+  @@unique([code, version])
+}
+
+model TextbookChapter {
+  id            String   @id @default(uuid())
+  bookId        String
+  code          String
+  name          String
+  description   String?  @db.Text // Chapter description
+  order         Int      @default(0)
+  chapterNumber Int?     // Chapter number (1, 2, 3...)
+  level         Int      @default(1) // Chapter level (1 = chapter, 2 = section, 3 = subsection)
+  isActive      Boolean  @default(true)
+  isApproved    Boolean  @default(false)
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedAt    DateTime?
+  approvedBy    String?
+  rejectionReason String?
+  startPage     Int?     // Starting page number
+  endPage       Int?     // Ending page number
+  title         String?  // Alternative title
+  aliases       String[] // Aliases for matching
+  keywords      String[] // Keywords for search
+  source        String?  // Source: IMPORT, MANUAL, AI
+  confidence    Float?   // AI confidence score
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  book          TextbookBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  lessonMethods LessonTeachingMethod[]
+
+  @@unique([bookId, code])
+}
+
+// Textbook Index Job - tracks indexing jobs for textbooks
+model TextbookIndexJob {
+  id              String   @id @default(uuid())
+  bookId          String
+  status          String   @default("QUEUED") // QUEUED, PROCESSING, COMPLETED, FAILED
+  progress        Int      @default(0) // Progress percentage (0-100)
+  totalPages      Int?
+  processedPages  Int?     @default(0)
+  chaptersFound   Int?     @default(0)
+  chaptersSaved   Int?     @default(0)
+  extractionLog   Json?
+  errorMessage    String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  book            TextbookBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([bookId])
+  @@index([status])
+}
+
+// Queue Job - Background job queue
+model TextbookQueueJob {
+  id            String   @id @default(uuid())
+  type          String   // TEXTBOOK_INDEX, TEXTBOOK_EXTRACT, OCR_PROCESS, etc.
+  status        String   @default("PENDING") // PENDING, RUNNING, PAUSED, COMPLETED, FAILED, RETRY, CANCELLED
+  payload       Json?
+  result        Json?
+  error         String?
+  progress      Int      @default(0)
+  priority      Int      @default(0)
+  retryCount    Int      @default(0)
+  maxRetries    Int      @default(3)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  scheduledAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([type, status])
+  @@index([scheduledAt])
+}
+
+// Textbook Index - tracks indexed content from textbooks
+model TextbookIndex {
+  id            String   @id @default(uuid())
+  bookId        String   @unique
+  pdfHash       String
+  indexedAt     DateTime @default(now())
+  totalChapters Int      @default(0)
+  status        String   @default("ACTIVE") // ACTIVE, ARCHIVED
+
+  @@index([bookId])
+}
+
+// Textbook Chapter Index - tracks indexed content for each chapter
+model TextbookChapterIndex {
+  id            String   @id @default(uuid())
+  chapterId     String   @unique
+  indexId       String?
+  contentHash   String
+  indexedAt     DateTime @default(now())
+  status        String   @default("ACTIVE") // ACTIVE, ARCHIVED
+
+  @@index([chapterId])
+  @@index([indexId])
+}
+
+// ============================================
+// TEACHING METHOD MODELS
+// ============================================
+
+// Teaching Method - Main entity for teaching methods
+model TeachingMethod {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?  @db.Text // Mô tả tổng quan
+
+  // Teaching method details for AI Review
+  objectives  String?  @db.Text // Mục tiêu - Learning objectives
+  process    String?  @db.Text // Quy trình thực hiện - Implementation process
+  advantages String?  @db.Text // Ưu điểm - Advantages/Benefits
+  limitations String? @db.Text // Hạn chế - Limitations/Disadvantages
+  conditions  String?  @db.Text // Điều kiện áp dụng - Application conditions
+  examples   String?  @db.Text // Ví dụ minh họa - Examples
+
+  // AI-specific fields for auto-selection and review
+  keywords   String?  @db.Text // Từ khóa nhận diện - Keywords for AI matching
+  indicators String?  @db.Text // Dấu hiệu nhận diện - Recognition indicators
+  criteria   String?  @db.Text // Tiêu chí đánh giá - Evaluation criteria
+  improvementSuggestions String?  @db.Text // Gợi ý cải thiện - Improvement suggestions
+
+  // Sort and display
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations for AI auto-selection
+  lessonMethods       LessonTeachingMethod[]
+  activityMethods    ActivityTeachingMethod[]
+  textbookMethods    TextbookTeachingMethod[]
+  gradeLevelMethods  TeachingMethodGradeLevel[]
+  subjectMethods     TeachingMethodSubject[]
+  activityTypeMethods TeachingMethodActivity[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// Link table: Teaching Method <-> Lesson
+model LessonTeachingMethod {
+  id                  String   @id @default(uuid())
+  teachingMethodId    String
+  lessonTitle         String?  // Title of the lesson (optional - can be linked to textbook instead)
+  textbookBookId      String?  // Optional - can be linked to a textbook
+  textbookChapterId   String?  // Optional - can be linked to a chapter
+
+  // Priority and recommendation
+  priority            Int      @default(0)  // Higher = more important
+  isRecommended       Boolean  @default(false)
+  note                String?  // Additional notes
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  teachingMethod      TeachingMethod   @relation(fields: [teachingMethodId], references: [id], onDelete: Cascade)
+  textbookBook       TextbookBook?    @relation(fields: [textbookBookId], references: [id], onDelete: Cascade)
+  textbookChapter    TextbookChapter? @relation(fields: [textbookChapterId], references: [id], onDelete: Cascade)
+
+  @@unique([teachingMethodId, textbookBookId])
+  @@unique([teachingMethodId, textbookChapterId])
+  @@index([teachingMethodId])
+  @@index([textbookBookId])
+  @@index([textbookChapterId])
+}
+
+// Link table: Teaching Method <-> Activity
+model ActivityTeachingMethod {
+  id                  String   @id @default(uuid())
+  teachingMethodId    String
+  activityCode        String?  // Optional - specific activity code
+
+  // Priority and recommendation
+  priority            Int      @default(0)
+  isRecommended       Boolean  @default(false)
+  note                String?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  teachingMethod      TeachingMethod   @relation(fields: [teachingMethodId], references: [id], onDelete: Cascade)
+
+  @@index([teachingMethodId])
+  @@index([activityCode])
+}
+
+// Link table: Teaching Method <-> Textbook
+model TextbookTeachingMethod {
+  id                  String   @id @default(uuid())
+  teachingMethodId    String
+  textbookBookId      String
+
+  // Priority and recommendation
+  priority            Int      @default(0)
+  isRecommended       Boolean  @default(false)
+  note                String?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  teachingMethod      TeachingMethod   @relation(fields: [teachingMethodId], references: [id], onDelete: Cascade)
+  textbookBook        TextbookBook     @relation(fields: [textbookBookId], references: [id], onDelete: Cascade)
+
+  @@unique([teachingMethodId, textbookBookId])
+  @@index([teachingMethodId])
+  @@index([textbookBookId])
+}
+
+// Link table: Teaching Method <-> Grade Level (for AI auto-selection)
+model TeachingMethodGradeLevel {
+  id                String   @id @default(uuid())
+  teachingMethodId  String
+  gradeCode         String   // Grade level code (e.g., "1", "2", "3" for Grade 1, 2, 3)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  teachingMethod    TeachingMethod @relation(fields: [teachingMethodId], references: [id], onDelete: Cascade)
+
+  @@unique([teachingMethodId, gradeCode])
+  @@index([teachingMethodId])
+  @@index([gradeCode])
+}
+
+// Link table: Teaching Method <-> Subject (for AI auto-selection)
+model TeachingMethodSubject {
+  id                String   @id @default(uuid())
+  teachingMethodId  String
+  subjectCode       String   // Subject code (e.g., "TOAN", "TIENG_VIET")
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  teachingMethod    TeachingMethod @relation(fields: [teachingMethodId], references: [id], onDelete: Cascade)
+
+  @@unique([teachingMethodId, subjectCode])
+  @@index([teachingMethodId])
+  @@index([subjectCode])
+}
+
+// Link table: Teaching Method <-> Activity Type (for AI auto-selection)
+model TeachingMethodActivity {
+  id                String   @id @default(uuid())
+  teachingMethodId  String
+  activityType      String   // Activity type (e.g., "KHAM_PHA", "LUYEN_TAP", "UNG_DUNG")
+
+  priority         Int      @default(0)  // Higher = more important for this activity type
+  isRecommended    Boolean  @default(false)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  teachingMethod    TeachingMethod @relation(fields: [teachingMethodId], references: [id], onDelete: Cascade)
+
+  @@unique([teachingMethodId, activityType])
+  @@index([teachingMethodId])
+  @@index([activityType])
+}
+
+// ============================================
+// LESSON KNOWLEDGE MODELS
+// ============================================
+
+// Book - Bộ sách (e.g., "Chân trời sáng tạo", "Kết nối tri thức")
+model LessonBook {
+  id          String        @id @default(uuid())
+  code        String        @unique // e.g., "CTST", "KNTT"
+  name        String        // e.g., "Chân trời sáng tạo"
+  description String?
+  isActive    Boolean       @default(true)
+  isDefault   Boolean       @default(false)
+  order       Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  grades     LessonGrade[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+// Grade - Lớp (e.g., Lớp 1, Lớp 2)
+model LessonGrade {
+  id          String        @id @default(uuid())
+  bookId      String
+  code        String        // e.g., "1", "2", "3"
+  name        String        // e.g., "Lớp 1", "Lớp 2"
+  order       Int           @default(0)
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  book        LessonBook    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  subjects    LessonSubject[]
+
+  @@unique([bookId, code])
+  @@index([bookId])
+  @@index([isActive])
+}
+
+// Subject - Môn học (e.g., Toán, Tiếng Việt)
+model LessonSubject {
+  id          String        @id @default(uuid())
+  gradeId     String
+  code        String        // e.g., "TOAN", "TIENG_VIET"
+  name        String        // e.g., "Toán", "Tiếng Việt"
+  order       Int           @default(0)
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  grade       LessonGrade   @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+
+  @@unique([gradeId, code])
+  @@index([gradeId])
+  @@index([isActive])
+}
+
+// Lesson - Bài học (e.g., "Phép cộng trong phạm vi 10")
+model Lesson {
+  id            String              @id @default(uuid())
+  subjectId     String
+  code          String              // e.g., "LESSON_001"
+  title         String
+  description   String?
+  order         Int                 @default(0)
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  subject       LessonSubject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  lessonSections LessonSection[]
+
+  @@unique([subjectId, code])
+  @@index([subjectId])
+  @@index([isActive])
+}
+
+// Lesson Section - Các phần trong bài học (e.g., "Khởi động", "Hình thành kiến thức")
+model LessonSection {
+  id            String              @id @default(uuid())
+  lessonId      String
+  code          String              // e.g., "WARM_UP", "KNOWLEDGE_FORMATION"
+  name          String              // e.g., "Khởi động"
+  description   String?
+  order         Int                 @default(0)
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  lesson        Lesson              @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  activities    LessonActivity[]
+
+  @@unique([lessonId, code])
+  @@index([lessonId])
+  @@index([isActive])
+  @@index([code])
+}
+
+// Lesson Activity - Hoạt động cụ thể trong mỗi section
+model LessonActivity {
+  id                    String            @id @default(uuid())
+  sectionId             String
+  code                  String            // e.g., "ACT_001"
+  title                 String
+  order                 Int               @default(0)
+
+  // Activity details
+  summary               String?           // Tóm tắt hoạt động
+  teachingIntent        String?           // Ý đồ sư phạm
+  knowledge             String?           // Kiến thức cần đạt
+  keywords              String[]          // Từ khóa để matching
+  teachingMethod        String?           // Phương pháp dạy học
+
+  // Expected actions
+  expectedTeacherActions String?           // Hoạt động của GV
+  expectedStudentActions String?           // Hoạt động của HS
+  expectedOutcome       String?           // Kết quả mong đợi
+
+  // Duration
+  estimatedMinutes      Int?              // Thời gian ước tính
+
+  // Matching features
+  matchingPatterns      Json?             // Custom matching patterns
+  aliases              String[]
+  matchWeight          Float             @default(1.0) // Weight for scoring
+
+  isActive             Boolean           @default(true)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  section              LessonSection     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  mappingResults       MappingResult[]
+
+  @@unique([sectionId, code])
+  @@index([sectionId])
+  @@index([isActive])
+  @@index([code])
+}
+
+// Mapping Result - Kết quả mapping từ document
+model MappingResult {
+  id                  String            @id @default(uuid())
+  lessonPlanId        String
+  activityId          String
+
+  // Match information
+  confidence          Float
+  matchedBy           String            // ALIAS, KEYWORD, STRUCTURE, ORDER, MULTIPLE
+  matchScore          Float?
+
+  // Mapped data
+  matchedActivity     Json?             // Copy of matched activity data
+
+  // Document location
+  documentSectionCode String?
+  documentSectionTitle String?
+  documentActivityTitle String?
+  documentParagraphs   String[]
+
+  isUnknown           Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+
+  activity            LessonActivity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([lessonPlanId])
+  @@index([activityId])
+  @@index([confidence])
+}
+
+// Workflow Status Enum
+enum WorkflowStatus {
+  PENDING
+  PARSING
+  MAPPING
+  BUILDING_CONTEXT
+  AI_REVIEWING
+  GENERATING_SUGGESTIONS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// Workflow Session - Tracks AI workflow execution
+model WorkflowSession {
+  id               String         @id @default(uuid())
+  lessonPlanId     String
+  userId           String
+  status           WorkflowStatus @default(PENDING)
+  currentStep      String         @default("PENDING")
+  progress         Int            @default(0)
+  parseResult      Json?
+  mappingResult    Json?
+  reviewResult     Json?
+  annotationResult Json?
+  suggestionResult Json?
+  totalAiCalls     Int            @default(0)
+  totalTokens      Int            @default(0)
+  totalCost        Float          @default(0)
+  executionTime    Int            @default(0)
+  errorMessage     String?
+  errorDetails     Json?
+  result           Json?
+  error            String?
+  startedAt        DateTime?
+  completedAt       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([lessonPlanId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Workflow Step - Individual steps in a workflow
+model WorkflowStep {
+  id                String    @id @default(uuid())
+  workflowSessionId String
+  stepName          String
+  status            String    @default("PENDING")
+  progress          Int       @default(0)
+  input             Json?
+  output            Json?
+  error             String?
+  aiCalls           Int       @default(0)
+  tokens            Int       @default(0)
+  cost              Float     @default(0)
+  executionTime     Int       @default(0)
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@index([status])
+  @@index([stepName])
+  @@index([workflowSessionId])
+}
+
+// Textbook Cache Entry - Cache metadata for textbook PDF pages
+model TextbookCacheEntry {
+  chapterId   String    @id
+  filePath    String
+  fileSize    BigInt
+  startPage   Int
+  endPage     Int
+  expiresAt   DateTime
+  hitCount    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([expiresAt])
+}

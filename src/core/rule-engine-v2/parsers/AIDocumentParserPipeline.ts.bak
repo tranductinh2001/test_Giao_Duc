@@ -1,0 +1,1219 @@
+/**
+ * AI Document Parser Pipeline
+ *
+ * Complete refactoring of AI parsing into a multi-stage pipeline:
+ *
+ * 1. OCR Cleanup     - Fix OCR errors, merge lines, remove headers/footers
+ * 2. Semantic Normalize - Standardize terminology (GV → Giáo viên, etc.)
+ * 3. Document Parser - Build Document → Section hierarchy
+ * 4. Activity Parser  - Parse Activities with Teacher/Student actions
+ * 5. Relationship Builder - Link paragraphs to activities to sections
+ * 6. Validation       - Check for missing elements
+ *
+ * Each prompt does ONE thing - not multiple tasks.
+ */
+
+import { BeekOneAIClient, type AIResult } from '@/lib/beekone-ai-client';
+
+export interface AIDocumentParseResult {
+  success: boolean;
+  document?: AIDocument;
+  sections?: any[]; // For backward compatibility
+  tree?: DocumentTree; // Semantic tree
+  pipelineMetrics?: PipelineMetrics;
+  confidence: number;
+  error?: string;
+}
+
+export interface PipelineMetrics {
+  ocrCleanupTime: number;
+  normalizeTime: number;
+  documentParseTime: number;
+  activityParseTime: number;
+  relationshipTime: number;
+  validationTime: number;
+  totalTime: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estimatedCost: number;
+}
+
+export interface AIDocument {
+  id: string;
+  title: string;
+  metadata: DocumentMetadata;
+  sections: AISection[];
+}
+
+export interface DocumentMetadata {
+  totalPages?: number;
+  wordCount?: number;
+  language?: string;
+  hasTables?: boolean;
+  hasImages?: boolean;
+  originalFormat?: string;
+}
+
+export interface AISection {
+  id: string;
+  type: string;
+  title: string;
+  order: number;
+  activities: AIActivity[];
+  paragraphs: AIParagraph[];
+  confidence: number;
+}
+
+export interface AIActivity {
+  id: string;
+  type: string;
+  title: string;
+  goal?: string;
+  duration?: number;
+  order: number;
+  teacherActions: TeacherAction[];
+  studentActions: StudentAction[];
+  questions: Question[];
+  products: LearningProduct[];
+  assessments: Assessment[];
+  paragraphs: AIParagraph[];
+  resources?: string[];
+  confidence: number;
+  matchedBecause?: string;
+}
+
+export interface TeacherAction {
+  id: string;
+  action: string;
+  order: number;
+}
+
+export interface StudentAction {
+  id: string;
+  action: string;
+  order: number;
+}
+
+export interface Question {
+  id: string;
+  content: string;
+  order: number;
+}
+
+export interface LearningProduct {
+  id: string;
+  type: string;
+  description: string;
+}
+
+export interface Assessment {
+  id: string;
+  type: string;
+  method: string;
+  evidence?: string;
+  criteria?: string;
+}
+
+export interface AIParagraph {
+  id: string;
+  content: string;
+  type: string;
+  order: number;
+  startOffset: number;
+  endOffset: number;
+  parentId?: string;
+  parentType?: 'activity' | 'section';
+}
+
+export interface DocumentTree {
+  root: TreeNode;
+  sections: TreeNode[];
+  activities: TreeNode[];
+}
+
+export interface TreeNode {
+  id: string;
+  type: 'document' | 'section' | 'activity' | 'teacher_action' | 'student_action' | 'question' | 'product' | 'assessment' | 'paragraph';
+  title: string;
+  content?: string;
+  order: number;
+  level: number;
+  children: TreeNode[];
+  metadata?: Record<string, any>;
+  confidence: number;
+  parentId?: string;
+}
+
+export interface AIDocumentParseRequest {
+  documentText?: string; // Optional - only used when no visionData
+  documentTitle?: string;
+  visionData?: any; // Vision JSON data for semantic reasoning
+  context?: {
+    subject?: string;
+    gradeLevel?: string;
+    lessonDuration?: number;
+  };
+}
+
+// ============================================================================
+// PROMPT 1: OCR CLEANUP
+// ============================================================================
+
+const OCR_CLEANUP_SYSTEM = `You are an OCR cleanup expert. Your ONLY task is to fix OCR errors in Vietnamese lesson plan documents.
+
+RULES:
+1. Do NOT change content - only fix OCR errors
+2. Merge broken lines that should be together
+3. Remove page numbers, headers, footers, watermarks
+4. Fix garbled characters (e.g., "một" → "một", "đường" → "đường")
+5. Fix spacing issues
+6. Preserve original meaning
+
+OUTPUT: Clean text only, no explanations.`;
+
+const OCR_CLEANUP_USER = (text: string) => `Fix OCR errors in this Vietnamese lesson plan:
+
+${text}
+
+Return ONLY cleaned text, no JSON, no explanations.`;
+
+// ============================================================================
+// PROMPT 2: SEMANTIC NORMALIZE
+// ============================================================================
+
+const SEMANTIC_NORMALIZE_SYSTEM = `You are a Vietnamese terminology normalizer for lesson plans.
+
+Your task: Standardize terminology while keeping original meaning.
+
+TERM MAPPINGS TO APPLY:
+- "GV" / "Giáo viên" / "Giáo Vien" / "G.V" → "Giáo viên"
+- "HS" / "Học sinh" / "Học Sinh" / "H.S" → "Học sinh"
+- "Hoạt động khởi động" / "Khởi động" / "Warm up" / "Warm-up" → "Hoạt động khởi động"
+- "Hoạt động hình thành kiến thức" / "Hình thành KT" / "Hình thành kiến thức" → "Hoạt động hình thành kiến thức"
+- "Hoạt động luyện tập" / "Luyện tập" / "Luyện Tập" → "Hoạt động luyện tập"
+- "Hoạt động vận dụng" / "Vận dụng" / "Vân dụng" → "Hoạt động vận dụng"
+- "Củng cố" / "Củng cố" / "Củng cố bài" → "Củng cố"
+- "Về nhà" / "Về nhà làm bài tập" / "Dặn dò" → "Hướng dẫn về nhà"
+- "Mục tiêu" / "Muc tieu" / "Yêu cầu cần đạt" → "Mục tiêu"
+- "Kiến thức" / "Kien thuc" → "Kiến thức"
+- "Kỹ năng" / "Ky nang" → "Kỹ năng"
+- "Phẩm chất" / "Pham chat" → "Phẩm chất"
+- "Năng lực" / "Nang luc" → "Năng lực"
+
+OUTPUT: Return cleaned text with normalized terms.`;
+
+const SEMANTIC_NORMALIZE_USER = (text: string) => `Normalize terminology in this lesson plan:
+
+${text}
+
+Return normalized text only, no JSON, no explanations.`;
+
+// ============================================================================
+// PROMPT 3: DOCUMENT PARSER
+// ============================================================================
+
+const DOCUMENT_PARSER_SYSTEM = `You are a Vietnamese lesson plan structure analyzer.
+
+Your task: Identify the DOCUMENT STRUCTURE only.
+
+Identify:
+1. SECTIONS: Major parts (Mục tiêu, Chuẩn bị, Tiến trình, etc.)
+2. For each section: determine type and boundaries
+3. DO NOT parse activities yet - just sections
+
+SECTION TYPES:
+- OBJECTIVES / MỤC TIÊU
+- PREPARATION / CHUẨN BỊ (Thiết bị, Học liệu)
+- PROCEDURE / TIẾN TRÌNH (Các hoạt động)
+- HOMEWORK / VỀ NHÀ / CỦNG CỐ
+
+OUTPUT: Return JSON only, no markdown, no explanations.`;
+
+const DOCUMENT_PARSER_USER = (text: string) => `Identify sections in this Vietnamese lesson plan:
+
+${text}
+
+Return JSON:
+{
+  "sections": [
+    {
+      "id": "section-1",
+      "type": "OBJECTIVES|PREPARATION|PROCEDURE|HOMEWORK|CUSTOM",
+      "title": "Section title",
+      "order": 1,
+      "startLine": 0,
+      "endLine": 10,
+      "confidence": 0.95
+    }
+  ]
+}`;
+
+// ============================================================================
+// PROMPT 4: ACTIVITY PARSER
+// ============================================================================
+
+const ACTIVITY_PARSER_SYSTEM = `You are a Vietnamese lesson plan activity analyzer.
+
+Your task: Parse ACTIVITIES within the Procedure/Tiến trình section.
+
+For each activity, identify:
+1. Activity title
+2. Goal/Objective
+3. Duration (if mentioned)
+4. Teacher actions (what teacher does)
+5. Student actions (what students do)
+6. Questions (if any)
+7. Products (what students create/turn in)
+8. Assessment (how teacher evaluates)
+
+IMPORTANT:
+- Teacher actions should be a LIST, not a string
+- Student actions should be a LIST, not a string
+- Assessment should include type, method, evidence, criteria
+- Products should include type and description
+
+ACTION VERBS FOR TEACHER:
+- Giao, phát, chia, yêu cầu, hướng dẫn, quan sát, nhận xét, đặt câu hỏi, gợi ý, chốt, tổng kết, kết luận
+
+ACTION VERBS FOR STUDENT:
+- Quan sát, thảo luận, làm việc nhóm, trình bày, nhận xét, trả lời, lắng nghe, ghi chép, thực hành, luyện tập
+
+OUTPUT: Return JSON only, no markdown, no explanations.`;
+
+const ACTIVITY_PARSER_USER = (sectionText: string, sectionType: string) => `Parse activities in this lesson plan section:
+
+Section type: ${sectionType}
+Content:
+${sectionText}
+
+Return JSON:
+{
+  "activities": [
+    {
+      "id": "activity-1",
+      "type": "WARM_UP|PRESENTATION|PRACTICE|PRODUCTION|CONSOLIDATION|REVIEW|ASSESSMENT|CUSTOM",
+      "title": "Activity title",
+      "goal": "What students will learn/do",
+      "duration": 5,
+      "order": 1,
+      "teacherActions": [
+        { "id": "ta-1", "action": "Giao nhiệm vụ cho HS", "order": 1 },
+        { "id": "ta-2", "action": "Quan sát HS làm việc", "order": 2 }
+      ],
+      "studentActions": [
+        { "id": "sa-1", "action": "Thảo luận nhóm", "order": 1 },
+        { "id": "sa-2", "action": "Trình bày kết quả", "order": 2 }
+      ],
+      "questions": [
+        { "id": "q-1", "content": "Câu hỏi?", "order": 1 }
+      ],
+      "products": [
+        { "id": "p-1", "type": "PHIEU_HOC_TAP", "description": "Phiếu học tập" }
+      ],
+      "assessments": [
+        { "id": "a-1", "type": "OBSERVATION", "method": "Quan sát", "evidence": "Cách HS thảo luận", "criteria": "Hoàn thành nhiệm vụ" }
+      ],
+      "confidence": 0.9,
+      "matchedBecause": "Contains keywords: thảo luận nhóm, trình bày"
+    }
+  ]
+}`;
+
+// ============================================================================
+// PROMPT 5: RELATIONSHIP BUILDER
+// ============================================================================
+
+const RELATIONSHIP_BUILDER_SYSTEM = `You are a Vietnamese lesson plan relationship analyzer.
+
+Your task: Build PARAGRAPH → ACTIVITY → SECTION relationships.
+
+For each paragraph, identify:
+1. Which activity it belongs to
+2. If it's a transition between activities
+3. If it's part of teacher action, student action, or content
+
+OUTPUT: Return JSON only, no markdown, no explanations.`;
+
+const RELATIONSHIP_BUILDER_USER = (paragraphs: any[], activities: any[]) => `Build relationships:
+
+Paragraphs:
+${JSON.stringify(paragraphs, null, 2)}
+
+Activities:
+${JSON.stringify(activities, null, 2)}
+
+Return JSON:
+{
+  "relationships": [
+    {
+      "paragraphId": "p-1",
+      "parentId": "activity-1",
+      "parentType": "activity",
+      "role": "TEACHER_ACTION|STUDENT_ACTION|CONTENT|TRANSITION|QUESTION|PRODUCT|ASSESSMENT"
+    }
+  ]
+}`;
+
+// ============================================================================
+// PROMPT 6: VALIDATION
+// ============================================================================
+
+const VALIDATION_SYSTEM = `You are a Vietnamese lesson plan validator.
+
+Your task: Check for structural issues and completeness.
+
+VALIDATION RULES:
+1. If Teacher Action exists, Student Action should exist
+2. If Activity exists, it should have Teacher AND Student actions
+3. Each Activity should have at least one assessment or product
+4. Sections should be in logical order
+5. No orphaned paragraphs (paragraphs not belonging to any activity)
+
+OUTPUT: Return JSON only, no markdown, no explanations.`;
+
+const VALIDATION_USER = (document: any) => `Validate this lesson plan structure:
+
+${JSON.stringify(document, null, 2)}
+
+Return JSON:
+{
+  "valid": true,
+  "issues": [
+    {
+      "type": "WARNING|ERROR",
+      "location": "activity-1",
+      "message": "Activity has no student actions",
+      "severity": "HIGH|MEDIUM|LOW"
+    }
+  ],
+  "statistics": {
+    "totalSections": 5,
+    "totalActivities": 8,
+    "totalTeacherActions": 15,
+    "totalStudentActions": 12,
+    "totalQuestions": 5,
+    "totalProducts": 3,
+    "totalAssessments": 6
+  }
+}`;
+
+// ============================================================================
+// MAIN PARSER CLASS
+// ============================================================================
+
+export class AIDocumentParserPipeline {
+  private aiClient: BeekOneAIClient;
+  private enableCache: boolean = true;
+
+  constructor(options?: { apiKey?: string; baseUrl?: string; model?: string; cache?: boolean }) {
+    this.aiClient = new BeekOneAIClient(options);
+    if (options?.cache !== undefined) {
+      this.enableCache = options.cache;
+    }
+  }
+
+  isAvailable(): boolean {
+    return this.aiClient.isAvailable();
+  }
+
+  async parse(request: AIDocumentParseRequest): Promise<AIDocumentParseResult> {
+    const startTime = Date.now();
+    const metrics: PipelineMetrics = {
+      ocrCleanupTime: 0,
+      normalizeTime: 0,
+      documentParseTime: 0,
+      activityParseTime: 0,
+      relationshipTime: 0,
+      validationTime: 0,
+      totalTime: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      estimatedCost: 0,
+    };
+
+    try {
+      // Check if we have Vision JSON data - use Semantic Reasoner path
+      if (request.visionData) {
+        return this.parseWithVisionData(request, metrics);
+      }
+
+      // Fallback: If no visionData, use documentText (legacy path)
+      if (!request.documentText) {
+        console.error('[AI Parser Pipeline] No visionData and no documentText provided');
+        return {
+          success: false,
+          confidence: 0,
+          error: 'Either visionData or documentText must be provided',
+        };
+      }
+
+      // Step 1: OCR Cleanup
+      console.log('[AI Parser Pipeline] Step 1: OCR Cleanup...');
+      const ocrStart = Date.now();
+      let cleanedText = request.documentText;
+
+      const ocrResult = await this.aiClient.complete(OCR_CLEANUP_USER(request.documentText), {
+        temperature: 0.1,
+        maxTokens: 8000,
+        systemPrompt: OCR_CLEANUP_SYSTEM,
+      });
+
+      if (ocrResult.success && ocrResult.data) {
+        cleanedText = ocrResult.data;
+      }
+      metrics.ocrCleanupTime = Date.now() - ocrStart;
+      console.log('[AI Parser Pipeline] OCR Cleanup:', metrics.ocrCleanupTime + 'ms');
+
+      // Step 2: Semantic Normalize
+      console.log('[AI Parser Pipeline] Step 2: Semantic Normalize...');
+      const normalizeStart = Date.now();
+      let normalizedText = cleanedText;
+
+      const normalizeResult = await this.aiClient.complete(SEMANTIC_NORMALIZE_USER(cleanedText), {
+        temperature: 0.1,
+        maxTokens: 8000,
+        systemPrompt: SEMANTIC_NORMALIZE_SYSTEM,
+      });
+
+      if (normalizeResult.success && normalizeResult.data) {
+        normalizedText = normalizeResult.data;
+      }
+      metrics.normalizeTime = Date.now() - normalizeStart;
+      console.log('[AI Parser Pipeline] Semantic Normalize:', metrics.normalizeTime + 'ms');
+
+      // Step 3: Document Parser
+      console.log('[AI Parser Pipeline] Step 3: Document Parser...');
+      const docParseStart = Date.now();
+
+      const docResult = await this.aiClient.complete(DOCUMENT_PARSER_USER(normalizedText), {
+        temperature: 0.1,
+        maxTokens: 4000,
+        systemPrompt: DOCUMENT_PARSER_SYSTEM,
+      });
+
+      let sections: any[] = [];
+      if (docResult.success && docResult.data) {
+        try {
+          const parsed = JSON.parse(docResult.data);
+          sections = parsed.sections || [];
+        } catch (e) {
+          console.error('[AI Parser Pipeline] Failed to parse document structure:', e);
+        }
+      }
+      metrics.documentParseTime = Date.now() - docParseStart;
+      console.log('[AI Parser Pipeline] Document Parser:', metrics.documentParseTime + 'ms, ' + sections.length + ' sections');
+
+      // Step 4: Activity Parser
+      console.log('[AI Parser Pipeline] Step 4: Activity Parser...');
+      const activityStart = Date.now();
+
+      for (const section of sections) {
+        const activityResult = await this.aiClient.complete(
+          ACTIVITY_PARSER_USER(section.content || '', section.type),
+          {
+            temperature: 0.1,
+            maxTokens: 4000,
+            systemPrompt: ACTIVITY_PARSER_SYSTEM,
+              }
+        );
+
+        if (activityResult.success && activityResult.data) {
+          try {
+            const parsed = JSON.parse(activityResult.data);
+            section.activities = parsed.activities || [];
+          } catch (e) {
+            console.error('[AI Parser Pipeline] Failed to parse activities for section', section.id, e);
+          }
+        }
+      }
+      metrics.activityParseTime = Date.now() - activityStart;
+      console.log('[AI Parser Pipeline] Activity Parser:', metrics.activityParseTime + 'ms');
+
+      // Step 5: Relationship Builder
+      console.log('[AI Parser Pipeline] Step 5: Relationship Builder...');
+      const relStart = Date.now();
+
+      // Build paragraphs from activities
+      const paragraphs: any[] = [];
+      const activities: any[] = [];
+
+      for (const section of sections) {
+        for (const activity of section.activities || []) {
+          activities.push({ ...activity, sectionId: section.id });
+
+          // Add activity content as paragraph
+          paragraphs.push({
+            id: `p-${activity.id}`,
+            content: activity.title,
+            parentId: activity.id,
+            parentType: 'activity',
+          });
+
+          // Add teacher/student actions as paragraphs
+          for (const ta of activity.teacherActions || []) {
+            paragraphs.push({
+              id: ta.id,
+              content: ta.action,
+              parentId: activity.id,
+              parentType: 'activity',
+              role: 'TEACHER_ACTION',
+            });
+          }
+
+          for (const sa of activity.studentActions || []) {
+            paragraphs.push({
+              id: sa.id,
+              content: sa.action,
+              parentId: activity.id,
+              parentType: 'activity',
+              role: 'STUDENT_ACTION',
+            });
+          }
+        }
+      }
+
+      const relResult = await this.aiClient.complete(RELATIONSHIP_BUILDER_USER(paragraphs, activities), {
+        temperature: 0.1,
+        maxTokens: 2000,
+        systemPrompt: RELATIONSHIP_BUILDER_SYSTEM,
+      });
+
+      if (relResult.success && relResult.data) {
+        try {
+          const parsed = JSON.parse(relResult.data);
+          // Apply relationships
+        } catch (e) {
+          console.error('[AI Parser Pipeline] Failed to build relationships:', e);
+        }
+      }
+      metrics.relationshipTime = Date.now() - relStart;
+      console.log('[AI Parser Pipeline] Relationship Builder:', metrics.relationshipTime + 'ms');
+
+      // Step 6: Validation
+      console.log('[AI Parser Pipeline] Step 6: Validation...');
+      const validationStart = Date.now();
+
+      const validationResult = await this.aiClient.complete(VALIDATION_USER({ sections }), {
+        temperature: 0.1,
+        maxTokens: 2000,
+        systemPrompt: VALIDATION_SYSTEM,
+      });
+
+      let validationIssues: any[] = [];
+      if (validationResult.success && validationResult.data) {
+        try {
+          const parsed = JSON.parse(validationResult.data);
+          validationIssues = parsed.issues || [];
+        } catch (e) {
+          console.error('[AI Parser Pipeline] Failed to validate:', e);
+        }
+      }
+      metrics.validationTime = Date.now() - validationStart;
+      console.log('[AI Parser Pipeline] Validation:', metrics.validationTime + 'ms, ' + validationIssues.length + ' issues');
+
+      // Calculate metrics
+      metrics.totalTime = Date.now() - startTime;
+
+      // Build final document
+      const docId = 'doc-' + Date.now();
+      const document: AIDocument = {
+        id: docId,
+        title: request.documentTitle || 'Untitled',
+        metadata: {
+          wordCount: normalizedText.split(/\s+/).length,
+          language: 'vi',
+        },
+        sections: sections as AISection[],
+      };
+
+      const confidence = this.calculateConfidence(sections);
+
+      console.log('[AI Parser Pipeline] Complete:', metrics.totalTime + 'ms, confidence: ' + (confidence * 100).toFixed(1) + '%');
+
+      return {
+        success: true,
+        document,
+        pipelineMetrics: metrics,
+        confidence,
+      };
+
+    } catch (error) {
+      console.error('[AI Parser Pipeline] Error:', error);
+      return {
+        success: false,
+        confidence: 0,
+        error: error instanceof Error ? error.message : 'Pipeline failed',
+      };
+    }
+  }
+
+  /**
+   * SEMANTIC REASONING using Vision JSON data
+   *
+   * This is NOT document parsing or OCR.
+   * This is semantic reasoning over Vision JSON data.
+   *
+   * The Vision AI has already:
+   * - Read the PDF/Image
+   * - Extracted structure (pages, blocks, tables)
+   * - Identified elements (headings, paragraphs, tables)
+   *
+   * This AI's job is to:
+   * - Reason over the structured Vision JSON
+   * - Extract semantic meaning
+   * - Generate Semantic Document Tree
+   */
+  private async parseWithVisionData(
+    request: AIDocumentParseRequest,
+    metrics: PipelineMetrics
+  ): Promise<AIDocumentParseResult> {
+    const startTime = Date.now();
+    const visionData = request.visionData;
+
+    console.log('[SemanticReasoner] Using Vision JSON for semantic reasoning...');
+
+    // Build structured prompt from Vision JSON
+    const structuredPrompt = this.buildVisionPrompt(visionData);
+
+    // Calculate character count to determine if chunking is needed
+    const promptSize = structuredPrompt.length;
+    const needsChunking = promptSize > 15000; // If > 15K chars, chunk by section
+
+    let sections: any[] = [];
+
+    if (needsChunking) {
+      console.log('[SemanticReasoner] Large document detected (' + promptSize + ' chars), using chunked parsing');
+
+      // Chunk by sections from visionData
+      const visionSections = visionData?.sections || [];
+      for (const section of visionSections) {
+        console.log('[SemanticReasoner] Processing section:', section.title);
+
+        // Build section-specific prompt
+        const sectionPrompt = this.buildSectionPrompt(visionData, section);
+        const sectionPromptText = `Bạn là chuyên gia SEMANTIC CONTENT PRESERVATION cho giáo án.
+
+NHIỆM VỤ DUY NHẤT: Tổ chức lại cấu trúc, KHÔNG tóm tắt, KHÔNG bỏ nội dung.
+
+YÊU CẦU TUYỆT ĐỐI:
+- Giữ nguyên 100% nội dung gốc
+- Tất cả paragraph phải được copy đầy đủ
+- Tất cả dòng trong bảng phải được copy đầy đủ
+- Tất cả teacher actions phải được giữ lại (KHÔNG chọn lọc)
+- Tất cả student actions phải được giữ lại (KHÔNG chọn lọc)
+- Tất cả products, assessments, questions phải được giữ lại
+
+ĐÂY LÀ SEMANTIC STRUCTURING, KHÔNG PHẢI SUMMARIZATION
+
+DỮ LIỆU:
+${sectionPrompt}
+
+OUTPUT (JSON):
+${this.getSemanticTreeOutputSchema()}`;
+
+        const result = await this.aiClient.complete(sectionPromptText, {
+          temperature: 0.1,
+          maxTokens: 16000,
+          systemPrompt: `Bạn là chuyên gia SEMANTIC CONTENT PRESERVATION.
+- KHÔNG TÓM TẮT
+- KHÔNG RÚT GỌN
+- KHÔNG BỎ NỘI DUNG
+- Giữ nguyên 100% nội dung
+- Trả về JSON hợp lệ`,
+        });
+
+        if (result.success && result.data) {
+          try {
+            let cleanData = result.data.trim();
+            if (cleanData.startsWith('```json')) cleanData = cleanData.slice(7);
+            if (cleanData.startsWith('```')) cleanData = cleanData.slice(3);
+            if (cleanData.endsWith('```')) cleanData = cleanData.slice(0, -3);
+            cleanData = cleanData.trim();
+
+            const parsed = JSON.parse(cleanData);
+            const parsedSections = parsed.sections || parsed.activities || [];
+            sections.push(...parsedSections);
+          } catch (e) {
+            console.error('[SemanticReasoner] Failed to parse section', section.title, e);
+          }
+        }
+      }
+    } else {
+      // Single prompt for smaller documents
+      const prompt = `Bạn là chuyên gia SEMANTIC CONTENT PRESERVATION cho giáo án.
+
+NHIỆM VỤ DUY NHẤT: Tổ chức lại cấu trúc ngữ nghĩa, KHÔNG tóm tắt, KHÔNG bỏ nội dung.
+
+YÊU CẦU TUYỆT ĐỐI:
+1. Giữ nguyên 100% nội dung gốc - KHÔNG tóm tắt
+2. Tất cả paragraph phải được copy đầy đủ
+3. Tất cả dòng trong bảng phải được copy đầy đủ
+4. Tất cả teacher actions phải được giữ lại (tất cả, KHÔNG chọn lọc)
+5. Tất cả student actions phải được giữ lại (tất cả, KHÔNG chọn lọc)
+6. Tất cả products, assessments, questions phải được giữ lại
+7. Semantic Tree = TÁI CẤU TRÚC nội dung, KHÔNG PHẢI tóm tắt
+
+ĐÂY LÀ SEMANTIC STRUCTURING - GIỮ NGUYÊN 100% NỘI DUNG
+
+DỮ LIỆU VISION JSON:
+${structuredPrompt}
+
+OUTPUT (JSON):
+{
+  "sections": [
+    {
+      "id": "section-1",
+      "type": "MUC_TIEU|CHUAN_BI|TIEN_TRINH|DANH_GIA|PHU_LUC|CUSTOM",
+      "title": "Tên section",
+      "order": 1,
+      "confidence": 0.95,
+      "activities": [
+        {
+          "id": "activity-1",
+          "type": "KHOI_DONG|HINH_THANH|LUYEN_TAP|VAN_DUNG|DANH_GIA|CUSTOM",
+          "title": "Tên hoạt động",
+          "goal": "Mục tiêu hoạt động",
+          "duration": 5,
+          "order": 1,
+          "paragraphs": [
+            {"id": "p-1", "content": "NỘI DUNG ĐẦY ĐỦ CỦA ĐOẠN VĂN - GIỮ NGUYEN 100%"},
+            {"id": "p-2", "content": "NỘI DUNG ĐẦY ĐỦ - KHÔNG TÓM TẮT"}
+          ],
+          "teacherActions": [
+            { "id": "ta-1", "action": "Hành động của GV", "order": 1 }
+          ],
+          "studentActions": [
+            { "id": "sa-1", "action": "Hành động của HS", "order": 1 }
+          ],
+          "questions": [
+            { "id": "q-1", "content": "Câu hỏi?", "order": 1 }
+          ],
+          "products": [
+            { "id": "p-1", "type": "BÀI_LÀM", "description": "Sản phẩm HS tạo ra" }
+          ],
+          "assessments": [
+            { "id": "a-1", "type": "QUAN_SAT", "method": "Phương pháp đánh giá", "evidence": "Bằng chứng", "criteria": "Tiêu chí" }
+          ],
+          "confidence": 0.9
+        }
+      ]
+    }
+  ]
+}
+
+    // Calculate Vision JSON character count for validation
+    const visionCharacters = structuredPrompt.length;
+    console.log('[SemanticReasoner] Vision JSON characters:', visionCharacters);
+
+    // Count content items and calculate semantic characters
+    let totalTeacherActions = 0;
+    let totalStudentActions = 0;
+    let totalProducts = 0;
+    let totalAssessments = 0;
+    let totalQuestions = 0;
+    let totalActivities = 0;
+    let semanticCharacters = 0;
+    for (const section of sections) {
+      totalActivities += section.activities?.length || 0;
+
+      // Count section title
+      semanticCharacters += (section.title?.length || 0);
+
+      // Count activities
+      for (const activity of section.activities || []) {
+        totalTeacherActions += activity.teacherActions?.length || 0;
+        totalStudentActions += activity.studentActions?.length || 0;
+        totalProducts += activity.products?.length || 0;
+        totalAssessments += activity.assessments?.length || 0;
+        totalQuestions += activity.questions?.length || 0;
+
+        semanticCharacters += (activity.title?.length || 0);
+        semanticCharacters += (activity.goal?.length || 0);
+
+        // Count paragraphs
+        for (const para of activity.paragraphs || []) {
+          semanticCharacters += (para.content?.length || 0);
+        }
+
+        // Count teacher actions
+        for (const ta of activity.teacherActions || []) {
+          semanticCharacters += (ta.action?.length || 0);
+        }
+
+        // Count student actions
+        for (const sa of activity.studentActions || []) {
+          semanticCharacters += (sa.action?.length || 0);
+        }
+
+        // Count questions
+        for (const q of activity.questions || []) {
+          semanticCharacters += (q.content?.length || 0);
+        }
+
+        // Count products
+        for (const p of activity.products || []) {
+          semanticCharacters += (p.description?.length || 0);
+        }
+
+        // Count assessments
+        for (const a of activity.assessments || []) {
+          semanticCharacters += (a.method?.length || 0);
+        }
+      }
+    }
+
+    const retention = visionCharacters > 0 ? (semanticCharacters / visionCharacters * 100).toFixed(1) : '0';
+
+    console.log('[SemanticReasoner] Semantic Tree Stats:');
+    console.log('[SemanticReasoner]   Vision Characters:', visionCharacters);
+    console.log('[SemanticReasoner]   Semantic Characters:', semanticCharacters);
+    console.log('[SemanticReasoner]   Retention:', retention + '%');
+    console.log('[SemanticReasoner]   Sections:', sections.length);
+    console.log('[SemanticReasoner]   Activities:', totalActivities);
+    console.log('[SemanticReasoner]   TeacherActions:', totalTeacherActions);
+    console.log('[SemanticReasoner]   StudentActions:', totalStudentActions);
+    console.log('[SemanticReasoner]   Products:', totalProducts);
+    console.log('[SemanticReasoner]   Assessments:', totalAssessments);
+    console.log('[SemanticReasoner]   Questions:', totalQuestions);
+
+    // FAIL if semantic data is missing or retention too low - this is CRITICAL
+    if (sections.length === 0) {
+      console.error('[SemanticReasoner] CRITICAL: Semantic parsing failed - no sections returned');
+      console.error('[SemanticReasoner] Cannot continue - Semantic Tree is empty');
+
+      return {
+        success: false,
+        confidence: 0,
+        error: parseError || 'Semantic parsing failed - no sections returned',
+      };
+    }
+
+    // WARNING if retention is too low - but don't fail, just warn
+    if (parseFloat(retention) < 50) {
+      console.warn('[SemanticReasoner] WARNING: Low retention (' + retention + '%) - may be summarizing content');
+    }
+
+    // Count total paragraphs
+    let totalParagraphs = 0;
+    for (const section of sections) {
+      for (const activity of section.activities || []) {
+        totalParagraphs += activity.paragraphs?.length || 0;
+      }
+    }
+
+    console.log('[SemanticReasoner] Content Counts:');
+    console.log('[SemanticReasoner]   Total Paragraphs:', totalParagraphs);
+    console.log('[SemanticReasoner]   Total TeacherActions:', totalTeacherActions);
+    console.log('[SemanticReasoner]   Total StudentActions:', totalStudentActions);
+    console.log('[SemanticReasoner]   Total Products:', totalProducts);
+    console.log('[SemanticReasoner]   Total Assessments:', totalAssessments);
+    console.log('[SemanticReasoner]   Total Questions:', totalQuestions);
+
+    // Build document tree
+    const docId = 'doc-' + Date.now();
+    const document: AIDocument = {
+      id: docId,
+      title: request.documentTitle || 'Untitled',
+      metadata: {
+        totalPages: visionData?.metadata?.totalPages,
+        wordCount: visionData?.metadata?.wordCount || 0,
+        language: 'vi',
+      },
+      sections: sections,
+    };
+
+    const confidence = this.calculateConfidence(sections);
+
+    return {
+      success: true,
+      document,
+      sections, // For backward compatibility
+      tree: { sections } as DocumentTree, // Semantic tree
+      pipelineMetrics: metrics,
+      confidence,
+    };
+  }
+
+  private buildVisionPrompt(visionData: any): string {
+    const parts: string[] = [];
+
+    // ============================================================
+    // METADATA
+    // ============================================================
+    if (visionData?.metadata) {
+      parts.push(`# METADATA`);
+      parts.push(`Title: ${visionData.metadata.title || 'N/A'}`);
+      parts.push(`Total Pages: ${visionData.metadata.totalPages || 'N/A'}`);
+      parts.push(`Language: ${visionData.metadata.language || 'vi'}`);
+      parts.push(`Has Tables: ${visionData.metadata.hasTables ? 'Yes' : 'No'}`);
+      parts.push(`Has Images: ${visionData.metadata.hasImages ? 'Yes' : 'No'}`);
+      parts.push(`Word Count: ${visionData.metadata.wordCount || 'N/A'}`);
+      parts.push(`Confidence: ${(visionData.metadata.confidence || 0.9) * 100}%`);
+    }
+
+    // ============================================================
+    // SECTIONS
+    // ============================================================
+    if (visionData?.sections?.length > 0) {
+      parts.push(`\n# SECTIONS (${visionData.sections.length})`);
+      for (const section of visionData.sections) {
+        const pageRange = section.pageStart && section.pageEnd ? ` (trang ${section.pageStart}-${section.pageEnd})` : '';
+        parts.push(`- ${section.title}${pageRange}`);
+      }
+    }
+
+    // ============================================================
+    // TABLES (CRITICAL for understanding structure)
+    // ============================================================
+    if (visionData?.tables?.length > 0) {
+      parts.push(`\n# TABLES (${visionData.tables.length}) - ANALYZE CAREFULLY`);
+
+      for (let i = 0; i < visionData.tables.length; i++) {
+        const table = visionData.tables[i];
+        parts.push(`\n## Table ${i + 1}`);
+
+        // Table dimensions
+        parts.push(`Columns: ${table.columnCount || table.headers?.length || 'N/A'}`);
+        parts.push(`Rows: ${table.rowCount || table.rows?.length || 'N/A'}`);
+        parts.push(`Page: ${table.pageNumber || 'N/A'}`);
+
+        // Headers
+        if (table.headers && table.headers.length > 0) {
+          parts.push(`Headers: ${table.headers.join(' | ')}`);
+        }
+
+        // Merged cells - IMPORTANT for understanding column structure
+        if (table.mergedCells && table.mergedCells.length > 0) {
+          parts.push(`Merged Cells: ${table.mergedCells.length}`);
+          for (const mc of table.mergedCells.slice(0, 5)) {
+            parts.push(`  - Row ${mc.row}, Col ${mc.col}: rowSpan=${mc.rowSpan}, colSpan=${mc.colSpan}`);
+          }
+        }
+
+        // Table data rows
+        if (table.rows) {
+          parts.push(`\nData Rows:`);
+          for (const row of table.rows.slice(0, 8)) {
+            parts.push(`  ${row.join(' | ')}`);
+          }
+          if (table.rows.length > 8) {
+            parts.push(`  ... (${table.rows.length - 8} more rows)`);
+          }
+        }
+
+        // Column analysis - CRITICAL for multi-column tables
+        const colCount = table.columnCount || table.headers?.length || 0;
+        if (colCount >= 2) {
+          parts.push(`\n### COLUMN ANALYSIS`);
+          if (colCount === 2) {
+            parts.push(`Detected 2 columns - likely: Teacher | Student`);
+          } else if (colCount === 3) {
+            parts.push(`Detected 3 columns - likely: Teacher | Student | Product`);
+          } else if (colCount >= 4) {
+            parts.push(`Detected 4+ columns - likely: Teacher | Student | Product | Assessment`);
+          }
+        }
+      }
+    }
+
+    // ============================================================
+    // PAGES with BLOCKS (document hierarchy)
+    // ============================================================
+    if (visionData?.pages?.length > 0) {
+      parts.push(`\n# PAGES (${visionData.pages.length})`);
+
+      for (const page of visionData.pages.slice(0, 3)) {
+        parts.push(`\n## Page ${page.pageNumber}`);
+        parts.push(`Elements: ${page.elements?.length || 0}`);
+
+        for (const elem of page.elements?.slice(0, 15) || []) {
+          // Reading order
+          const order = elem.readingOrder !== undefined ? `[#${elem.readingOrder}] ` : '';
+
+          if (elem.type === 'heading') {
+            parts.push(`${order}[H${elem.level || 1}] ${elem.content?.substring(0, 80) || ''}`);
+          } else if (elem.type === 'paragraph') {
+            parts.push(`${order}[P] ${elem.content?.substring(0, 150) || ''}`);
+          } else if (elem.type === 'table') {
+            parts.push(`${order}[TABLE] rows=${elem.tableData?.rows?.length || 0}`);
+          } else if (elem.type === 'image') {
+            parts.push(`${order}[IMAGE]`);
+          }
+
+          // Position info (bbox)
+          if (elem.bbox) {
+            parts.push(`    Position: (${elem.bbox.x}, ${elem.bbox.y}) ${elem.bbox.width}x${elem.bbox.height}`);
+          }
+        }
+      }
+    }
+
+    // ============================================================
+    // BLOCKS (flattened elements)
+    // ============================================================
+    if (visionData?.blocks?.length > 0) {
+      parts.push(`\n# BLOCKS (${visionData.blocks.length})`);
+      for (const block of visionData.blocks.slice(0, 20)) {
+        if (block.type === 'heading') {
+          parts.push(`[H${block.level}] ${block.content?.substring(0, 60)}`);
+        } else if (block.type === 'paragraph') {
+          parts.push(`[P] ${block.content?.substring(0, 100)}`);
+        }
+      }
+    }
+
+    // ============================================================
+    // ACTIVITIES (if already extracted by Vision)
+    // ============================================================
+    if (visionData?.activities?.length > 0) {
+      parts.push(`\n# ACTIVITIES (${visionData.activities.length})`);
+      for (const activity of visionData.activities.slice(0, 10)) {
+        parts.push(`\n## ${activity.title || 'Activity'}`);
+        parts.push(`Section: ${activity.sectionTitle || 'N/A'}`);
+        parts.push(`Page Numbers: ${activity.pageNumbers?.join(', ') || 'N/A'}`);
+        parts.push(`Paragraphs: ${activity.paragraphCount || 0}`);
+
+        if (activity.paragraphs && activity.paragraphs.length > 0) {
+          for (const para of activity.paragraphs.slice(0, 5)) {
+            const prefix = para.isHeading ? `[H${para.headingLevel}] ` : `[P] `;
+            parts.push(`${prefix}${para.content?.substring(0, 100) || ''}`);
+          }
+        }
+      }
+    }
+
+    // ============================================================
+    // IMAGES
+    // ============================================================
+    if (visionData?.images?.length > 0) {
+      parts.push(`\n# IMAGES (${visionData.images.length})`);
+      for (const img of visionData.images.slice(0, 5)) {
+        parts.push(`- Image: ${img.caption || 'N/A'} (Page ${img.pageNumber || 'N/A'})`);
+      }
+    }
+
+    return parts.join('\n');
+  }
+
+  /**
+   * Build prompt for a specific section - includes more content detail
+   */
+  private buildSectionPrompt(visionData: any, section: any): string {
+    const parts: string[] = [];
+
+    parts.push(`# SECTION: ${section.title}`);
+    parts.push(`Type: ${section.type || 'CUSTOM'}`);
+    parts.push(`Code: ${section.code || 'N/A'}`);
+
+    // Get all activities for this section
+    if (section.activities) {
+      for (const activity of section.activities) {
+        parts.push(`\n## Activity: ${activity.title || 'Unnamed'}`);
+        parts.push(`Type: ${activity.type || 'CUSTOM'}`);
+
+        // Full paragraphs
+        if (activity.paragraphs && activity.paragraphs.length > 0) {
+          parts.push(`\n### Paragraphs (${activity.paragraphs.length}):`);
+          for (const para of activity.paragraphs) {
+            parts.push(`- ${para.content || ''}`);
+          }
+        }
+
+        // Tables in this activity
+        if (activity.tables) {
+          parts.push(`\n### Tables:`);
+          for (const table of activity.tables) {
+            if (table.headers) parts.push(`Headers: ${table.headers.join(' | ')}`);
+            if (table.rows) {
+              for (const row of table.rows) {
+                parts.push(`Row: ${row.join(' | ')}`);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Also get content from blocks that might not be in activities
+    if (section.blocks) {
+      parts.push(`\n### Additional Blocks:`);
+      for (const block of section.blocks) {
+        if (block.content) {
+          parts.push(`- ${block.content}`);
+        }
+      }
+    }
+
+    return parts.join('\n');
+  }
+
+  /**
+   * Get the output JSON schema for semantic tree
+   */
+  private getSemanticTreeOutputSchema(): string {
+    return `{
+  "sections": [
+    {
+      "id": "section-1",
+      "type": "MUC_TIEU|CHUAN_BI|TIEN_TRINH|DANH_GIA|PHU_LUC|CUSTOM",
+      "title": "Tên section",
+      "order": 1,
+      "confidence": 0.95,
+      "activities": [
+        {
+          "id": "activity-1",
+          "type": "KHOI_DONG|HINH_THANH|LUYEN_TAP|VAN_DUNG|DANH_GIA|CUSTOM",
+          "title": "Tên hoạt động",
+          "goal": "Mục tiêu hoạt động",
+          "duration": 5,
+          "order": 1,
+          "paragraphs": [
+            {"id": "p-1", "content": "NỘI DUNG ĐẦY ĐỦ CỦA PARAGRAPH"}
+          ],
+          "teacherActions": [
+            {"id": "ta-1", "action": "Hành động GV 1", "order": 1},
+            {"id": "ta-2", "action": "Hành động GV 2", "order": 2},
+            {"id": "ta-3", "action": "Hành động GV 3", "order": 3}
+          ],
+          "studentActions": [
+            {"id": "sa-1", "action": "Hành động HS 1", "order": 1},
+            {"id": "sa-2", "action": "Hành động HS 2", "order": 2}
+          ],
+          "questions": [
+            {"id": "q-1", "content": "Câu hỏi 1", "order": 1}
+          ],
+          "products": [
+            {"id": "p-1", "type": "BÀI_LÀM", "description": "Sản phẩm 1"},
+            {"id": "p-2", "type": "BÀI_LÀM", "description": "Sản phẩm 2"}
+          ],
+          "assessments": [
+            {"id": "a-1", "type": "QUAN_SAT", "method": "Phương pháp đánh giá"}
+          ],
+          "confidence": 0.9
+        }
+      ]
+    }
+  ]
+}`;
+  }
+
+  private calculateConfidence(sections: any[]): number {
+    if (sections.length === 0) return 0;
+
+    const totalConfidence = sections.reduce((sum, section) => {
+      const sectionConf = section.confidence || 0.8;
+      const activityConfs = (section.activities || []).map((a: any) => a.confidence || 0.8);
+      const avgActivity = activityConfs.length > 0
+        ? activityConfs.reduce((a: number, b: number) => a + b, 0) / activityConfs.length
+        : 0.8;
+      return sum + (sectionConf + avgActivity) / 2;
+    }, 0);
+
+    return totalConfidence / sections.length;
+  }
+}
+
+// Export singleton
+export const aiDocumentParserPipeline = new AIDocumentParserPipeline();

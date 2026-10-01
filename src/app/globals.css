@@ -1,0 +1,425 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Education Workspace Design Tokens - Light Theme */
+    /* Color Palette */
+    --ivory-desk: #f7f3eb;
+    --paper: #fffdf8;
+    --ink: #1c1917;
+    --slate-ink: #57534e;
+    --paper-edge: #e7e0d4;
+    --forest: #2f5d50;
+    --indigo-ink: #3d4f7c;
+
+    /* Semantic Colors - with --color- prefix for Tailwind */
+    --color-background: var(--ivory-desk);
+    --color-foreground: var(--ink);
+    --foreground-inverted: #ffffff;
+    --color-muted: #f5f5f4;
+    --color-border: var(--paper-edge);
+    --color-card: var(--surface);
+    --color-card-foreground: var(--foreground);
+    --color-input: var(--surface);
+    --color-input-foreground: var(--foreground);
+    --color-ring: var(--primary);
+    --color-muted-foreground: #64748b;
+    /* Keep aliases without --color- prefix */
+    --background: var(--ivory-desk);
+    --foreground: var(--ink);
+    --muted: #a8a29e;
+    --border: var(--paper-edge);
+    --card: var(--surface);
+    --card-foreground: var(--foreground);
+
+    /* Surface */
+    --surface: var(--paper);
+    --surface-raised: #fff;
+    --kraft: #e7e0d4;
+
+    /* Primary - Forest */
+    --primary: var(--forest);
+    --primary-hover: #46695e;
+    --primary-active: #19362e;
+    --primary-foreground: #ffffff;
+    --primary-soft: rgba(47, 93, 80, 0.1);
+    --primary-soft-hover: rgba(47, 93, 80, 0.15);
+    /* Tailwind --color- prefix versions */
+    --color-primary: var(--forest);
+    --color-primary-foreground: #ffffff;
+
+    /* Secondary - Indigo */
+    --secondary: var(--indigo-ink);
+    --secondary-hover: #5a698a;
+    --secondary-foreground: #ffffff;
+    --secondary-soft: rgba(61, 79, 124, 0.1);
+    /* Tailwind --color- prefix versions */
+    --color-secondary: var(--indigo-ink);
+    --color-secondary-foreground: #ffffff;
+
+    /* Accent colors for UI */
+    --accent: var(--forest);
+    --accent-2: var(--indigo-ink);
+
+    /* Status Colors */
+    --success: #52c41a;
+    --success-soft: rgba(82, 196, 26, 0.1);
+    --success-foreground: #ffffff;
+    --warning: #faad14;
+    --warning-soft: rgba(250, 173, 20, 0.1);
+    --warning-foreground: #ffffff;
+    --danger: #ff4d4f;
+    --danger-soft: rgba(255, 77, 79, 0.1);
+    --danger-foreground: #ffffff;
+    --info: var(--indigo-ink);
+    --info-soft: rgba(61, 79, 124, 0.1);
+    --info-foreground: #ffffff;
+    /* Tailwind --color- prefix versions */
+    --color-success: #52c41a;
+    --color-success-foreground: #ffffff;
+    --color-warning: #faad14;
+    --color-warning-foreground: #ffffff;
+    --color-destructive: #ff4d4f;
+    --color-destructive-foreground: #ffffff;
+    --color-muted: #3f3f46;
+    --color-muted-foreground: #94a3b8;
+    --color-accent: var(--forest);
+    --color-accent-foreground: #ffffff;
+    --color-popover: var(--surface);
+    --color-popover-foreground: var(--foreground);
+
+    /* Overlay */
+    --overlay: rgba(0, 0, 0, 0.5);
+    --overlay-light: rgba(0, 0, 0, 0.3);
+
+    /* Sticky Note Colors */
+    --sticky-yellow: #fef9c3;
+    --sticky-yellow-text: #713f12;
+    --sticky-mint: #dcfce7;
+    --sticky-mint-text: #14532d;
+    --sticky-rose: #ffe4e6;
+    --sticky-rose-text: #881337;
+    --sticky-sky: #e0f2fe;
+    --sticky-sky-text: #0c4a6e;
+
+    /* Shadows */
+    --shadow-paper: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-lift: 0 4px 12px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+    --shadow-elevated: 0 8px 24px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.08);
+
+    /* Typography */
+    --font-display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --font-body: 'IBM Plex Sans', 'Inter', system-ui, 'Segoe UI', sans-serif;
+    --font-ui: var(--font-body);
+
+    /* Spacing - 8px baseline */
+    --space-xxs: 4px;
+    --space-xs: 8px;
+    --space-sm: 12px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-xxl: 48px;
+
+    /* Border Radius */
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+
+    /* Layout */
+    --sidebar-w: 240px;
+    --topbar-h: 56px;
+
+    /* Transitions */
+    --transition-fast: 0.1s;
+    --transition-normal: 0.2s;
+    --transition-slow: 0.3s;
+  }
+
+  /* Dark Theme */
+  .dark {
+    --ivory-desk: #1d1d1d;
+    --paper: #141414;
+    --ink: #dcdcdc;
+    --slate-ink: #9ca3af;
+    --paper-edge: #3e3e3e;
+    --forest: #3f5c53;
+    --indigo-ink: #505c78;
+
+    --color-background: #1d1d1d;
+    --color-foreground: #dcdcdc;
+    --foreground-inverted: #1d1d1d;
+    --color-muted: #3f3f46;
+    --color-border: #3e3e3e;
+    --color-card: #1d1d1d;
+    --color-card-foreground: #dcdcdc;
+    --color-input: #272727;
+    --color-input-foreground: #dcdcdc;
+    --color-ring: #3f5c53;
+    --color-muted-foreground: #94a3b8;
+    /* Keep aliases */
+    --background: #1d1d1d;
+    --foreground: #dcdcdc;
+    --muted: #a1a1aa;
+    --border: #3e3e3e;
+    --card: #1d1d1d;
+    --card-foreground: #dcdcdc;
+
+    --surface: #141414;
+    --surface-raised: #272727;
+    --kraft: #272727;
+
+    --primary: #3f5c53;
+    --primary-hover: #596b65;
+    --primary-active: #354b44;
+    --primary-foreground: #dcdcdc;
+    --primary-soft: rgba(63, 92, 83, 0.2);
+    --primary-soft-hover: rgba(63, 92, 83, 0.3);
+    /* Tailwind --color- prefix */
+    --color-primary: #3f5c53;
+    --color-primary-foreground: #dcdcdc;
+
+    --secondary: #505c78;
+    --secondary-hover: #707989;
+    --secondary-foreground: #dcdcdc;
+    --secondary-soft: rgba(80, 92, 120, 0.2);
+    /* Tailwind --color- prefix */
+    --color-secondary: #505c78;
+    --color-secondary-foreground: #dcdcdc;
+
+    --accent: #3f5c53;
+    --accent-2: #505c78;
+
+    --success: #64b537;
+    --success-soft: rgba(100, 181, 55, 0.2);
+    --success-foreground: #dcdcdc;
+    --warning: #dcaa37;
+    --warning-soft: rgba(220, 170, 55, 0.2);
+    --warning-foreground: #dcdcdc;
+    --danger: #dc6966;
+    --danger-soft: rgba(220, 105, 102, 0.2);
+    --danger-foreground: #dcdcdc;
+    --info: #505c78;
+    --info-soft: rgba(80, 92, 120, 0.2);
+    --info-foreground: #dcdcdc;
+    /* Tailwind --color- prefix */
+    --color-success: #64b537;
+    --color-success-foreground: #dcdcdc;
+    --color-warning: #dcaa37;
+    --color-warning-foreground: #dcdcdc;
+    --color-destructive: #dc6966;
+    --color-destructive-foreground: #dcdcdc;
+    --color-muted: #3f3f46;
+    --color-muted-foreground: #94a3b8;
+    --color-accent: #3f5c53;
+    --color-accent-foreground: #dcdcdc;
+    --color-popover: #1d1d1d;
+    --color-popover-foreground: #dcdcdc;
+
+    /* Overlay */
+    --overlay: rgba(0, 0, 0, 0.7);
+    --overlay-light: rgba(0, 0, 0, 0.5);
+
+    --sticky-yellow: #422006;
+    --sticky-yellow-text: #fef9c3;
+    --sticky-mint: #052e16;
+    --sticky-mint-text: #dcfce7;
+    --sticky-rose: #450a0a;
+    --sticky-rose-text: #ffe4e6;
+    --sticky-sky: #0c1929;
+    --sticky-sky-text: #e0f2fe;
+
+    --shadow-paper: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-lift: 0 4px 12px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3);
+    --shadow-elevated: 0 8px 24px rgba(0,0,0,0.5), 0 4px 8px rgba(0,0,0,0.4);
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-body);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  /* Tailwind compatibility - map CSS variables to utility classes */
+  .bg-card { background-color: var(--color-card); }
+  .text-card-foreground { color: var(--color-card-foreground); }
+  .bg-input { background-color: var(--color-input); }
+  .text-input-foreground { color: var(--color-input-foreground); }
+  .ring-ring { --tw-ring-color: var(--color-ring); }
+  .text-muted-foreground { color: var(--color-muted-foreground); }
+  .border-border { border-color: var(--color-border); }
+  .bg-primary-10 { background-color: var(--primary-soft); }
+  .text-primary { color: var(--primary); }
+  .bg-primary { background-color: var(--primary); }
+  .hover\:bg-primary-10:hover { background-color: var(--primary-soft); }
+  .hover\:bg-muted:hover { background-color: var(--color-muted); }
+  .bg-muted { background-color: var(--color-muted); }
+  .border-primary { border-color: var(--primary); }
+  .border-input { border-color: var(--color-input); }
+  .hover\:border-primary:hover { border-color: var(--primary); }
+  .hover\:text-primary:hover { color: var(--primary); }
+  .bg-success { background-color: var(--success); }
+  .text-success { color: var(--success); }
+  .bg-warning { background-color: var(--warning); }
+  .text-warning { color: var(--warning); }
+  .bg-info { background-color: var(--info); }
+  .text-info { color: var(--info); }
+  .bg-danger { background-color: var(--danger); }
+  .text-danger { color: var(--danger); }
+}
+
+/* Custom scrollbar */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted);
+  }
+}
+
+/* Paper Card Component */
+@layer components {
+  .paper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-paper);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .paper::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    opacity: 0.55;
+  }
+
+  .paper > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .paper.hoverable:hover {
+    box-shadow: var(--shadow-lift);
+    transform: translateY(-1px);
+  }
+
+  .paper-pad {
+    padding: 18px 20px;
+  }
+}
+
+/* Sticky Note Component */
+@layer components {
+  .sticky {
+    background: var(--sticky-yellow);
+    border-radius: 2px 14px 14px 14px;
+    padding: 14px 14px 16px;
+    border: 1px solid color-mix(in srgb, var(--paper-edge) 22%, var(--border));
+    box-shadow: var(--shadow-paper);
+    min-height: 110px;
+    cursor: pointer;
+    transition: transform 0.18s, box-shadow 0.18s;
+  }
+
+  .sticky:hover {
+    transform: translateY(-2px) rotate(-0.3deg);
+    box-shadow: var(--shadow-lift);
+  }
+
+  .sticky::before {
+    content: "";
+    display: block;
+    width: 24px;
+    height: 8px;
+    margin: -14px 0 10px -4px;
+    background: color-mix(in srgb, var(--paper-edge) 45%, transparent);
+    border-radius: 0 0 3px 0;
+  }
+
+  .sticky .t {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .sticky .b {
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+
+  .sticky.mint {
+    background: var(--sticky-mint);
+  }
+
+  .sticky.rose {
+    background: var(--sticky-rose);
+  }
+
+  .sticky.sky {
+    background: var(--sticky-sky);
+  }
+}
+
+/* Animation */
+@keyframes fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade {
+  animation: fade 0.28s ease;
+}

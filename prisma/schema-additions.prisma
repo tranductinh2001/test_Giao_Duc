@@ -1,0 +1,349 @@
+// ONLYOFFICE Document Sessions
+model DocumentSession {
+  id           String   @id @default(uuid())
+  lessonPlanId String
+  documentKey  String   @unique // ONLYOFFICE document key
+  fileUrl      String   // URL to DOCX file
+  userId       String   // Current editor
+  status       DocumentSessionStatus @default(EDITING)
+
+  // ONLYOFFICE specific
+  callbackUrl  String?
+  title        String
+  fileType     String   @default("docx")
+
+  // Metadata
+  editingUsers String[] @default([]) // Array of user IDs currently editing
+  lastModified DateTime @updatedAt
+  version      Int      @default(1)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lessonPlan   LessonPlan @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lessonPlanId])
+  @@index([documentKey])
+  @@index([userId])
+}
+
+enum DocumentSessionStatus {
+  EDITING
+  SAVING
+  CLOSED
+  ERROR
+}
+
+// AI Review Comments for DOCX
+model DocumentComment {
+  id              String   @id @default(uuid())
+  lessonPlanId    String
+  sectionId       String?
+  annotationId    String?  // Link to existing Annotation
+
+  // DOCX location
+  paragraphId     String?  // Paragraph ID in DOCX
+  startOffset     Int?
+  endOffset       Int?
+
+  // Comment content
+  commentText     String   @db.Text
+  status          CommentStatus @default(PENDING)
+  severity        String   // CRITICAL, ERROR, WARNING, INFO
+
+  // AI Review data
+  reason          String?  @db.Text
+  suggestion      String?  @db.Text
+  rewriteContent  String?  @db.Text
+
+  // Track Changes
+  hasTrackChange  Boolean  @default(false)
+  changeType      String?  // INSERT, DELETE, REPLACE
+
+  createdBy       String   // AI or User ID
+  resolvedBy      String?
+  resolvedAt      DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  lessonPlan      LessonPlan          @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  section         LessonPlanSection?  @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  annotation      Annotation?         @relation(fields: [annotationId], references: [id], onDelete: SetNull)
+  resolver        User?               @relation(fields: [resolvedBy], references: [id], onDelete: SetNull)
+
+  @@index([lessonPlanId])
+  @@index([sectionId])
+  @@index([annotationId])
+  @@index([status])
+}
+
+enum CommentStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  RESOLVED
+}
+
+// Document Version History
+model DocumentVersion {
+  id              String   @id @default(uuid())
+  lessonPlanId    String
+  versionNumber   Int
+
+  // File info
+  filePath        String
+  fileUrl         String
+  fileSize        BigInt
+  fileHash        String   // MD5 hash for deduplication
+
+  // Change tracking
+  changeSummary   String?  @db.Text
+  changesCount    Int      @default(0)
+  commentsCount   Int      @default(0)
+
+  // Metadata
+  createdBy       String
+  isPublished     Boolean  @default(false)
+
+  createdAt       DateTime @default(now())
+
+  lessonPlan      LessonPlan @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  creator         User       @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@unique([lessonPlanId, versionNumber])
+  @@index([lessonPlanId])
+  @@index([createdBy])
+}
+
+// ============================================
+// PHASE 1: LESSON PLAN PIPELINE SCHEMA
+// ============================================
+
+// Section Alias - Admin configured aliases for each section
+model SectionAlias {
+  id            String   @id @default(uuid())
+  templateId    String
+  sectionCode   String   // Reference to rule_template_sections.code
+  alias         String
+  order         Int      @default(0)
+  confidence    Float    @default(1.0) // Confidence multiplier for this alias
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([templateId, sectionCode, alias])
+  @@index([templateId])
+  @@index([sectionCode])
+}
+
+// Pipeline execution log
+model PipelineExecution {
+  id              String            @id @default(uuid())
+  lessonPlanId    String
+  templateId      String?
+  status          PipelineStatus    @default(PENDING)
+  parseTime       Int?              // milliseconds
+  sectionsCount   Int?
+  activitiesCount Int?
+  overallConfidence Float?
+  errorMessage   String?
+  warnings       String[]
+  metadata       Json?
+  createdAt      DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([lessonPlanId])
+  @@index([status])
+}
+
+enum PipelineStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ============================================
+// PHASE 2: KNOWLEDGE MAPPING ENGINE
+// ============================================
+
+// Book - Bộ sách (e.g., "Chân trời sáng tạo", "Kết nối tri thức")
+model LessonBook {
+  id          String        @id @default(uuid())
+  code        String        @unique // e.g., "CTST", "KNTT"
+  name        String        // e.g., "Chân trời sáng tạo"
+  description String?
+  isActive    Boolean       @default(true)
+  isDefault   Boolean       @default(false)
+  order       Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  grades     LessonGrade[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+// Grade - Lớp (e.g., Lớp 1, Lớp 2)
+model LessonGrade {
+  id          String        @id @default(uuid())
+  bookId      String
+  code        String        // e.g., "1", "2", "3"
+  name        String        // e.g., "Lớp 1", "Lớp 2"
+  order       Int           @default(0)
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  book        LessonBook    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  subjects    LessonSubject[]
+
+  @@unique([bookId, code])
+  @@index([bookId])
+  @@index([isActive])
+}
+
+// Subject - Môn học (e.g., Toán, Tiếng Việt)
+model LessonSubject {
+  id          String        @id @default(uuid())
+  gradeId     String
+  code        String        // e.g., "TOAN", "TIENG_VIET"
+  name        String        // e.g., "Toán", "Tiếng Việt"
+  order       Int           @default(0)
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  grade       LessonGrade   @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+
+  @@unique([gradeId, code])
+  @@index([gradeId])
+  @@index([isActive])
+}
+
+// Lesson - Bài học (e.g., "Phép cộng trong phạm vi 10")
+model Lesson {
+  id            String              @id @default(uuid())
+  subjectId     String
+  code          String              // e.g., "LESSON_001"
+  title         String
+  description   String?
+  order         Int                 @default(0)
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  subject       LessonSubject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  lessonSections LessonSection[]
+
+  @@unique([subjectId, code])
+  @@index([subjectId])
+  @@index([isActive])
+}
+
+// Lesson Section - Các phần trong bài học (e.g., "Khởi động", "Hình thành kiến thức")
+model LessonSection {
+  id            String              @id @default(uuid())
+  lessonId      String
+  code          String              // e.g., "WARM_UP", "KNOWLEDGE_FORMATION"
+  name          String              // e.g., "Khởi động"
+  description   String?
+  order         Int                 @default(0)
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  lesson        Lesson              @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  activities    LessonActivity[]
+
+  @@unique([lessonId, code])
+  @@index([lessonId])
+  @@index([isActive])
+  @@index([code])
+}
+
+// Lesson Activity - Hoạt động cụ thể trong mỗi section
+model LessonActivity {
+  id                    String            @id @default(uuid())
+  sectionId             String
+  code                  String            // e.g., "ACT_001"
+  title                 String
+  order                 Int               @default(0)
+
+  // Activity details
+  summary               String?           // Tóm tắt hoạt động
+  teachingIntent        String?           // Ý đồ sư phạm
+  knowledge             String?           // Kiến thức cần đạt
+  keywords              String[]          @default([])  // Từ khóa để matching
+  teachingMethod        String?           // Phương pháp dạy học
+
+  // Expected actions
+  expectedTeacherActions String?           // Hoạt động của GV
+  expectedStudentActions String?           // Hoạt động của HS
+  expectedOutcome       String?           // Kết quả mong đợi
+
+  // Duration
+  estimatedMinutes      Int?              // Thời gian ước tính
+
+  // Matching features
+  matchingPatterns      Json?             // Custom matching patterns
+  aliases              String[]          @default([])  // Alias for matching
+  matchWeight          Float             @default(1.0) // Weight for scoring
+
+  isActive             Boolean           @default(true)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  section              LessonSection     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  mappingResults       MappingResult[]
+
+  @@unique([sectionId, code])
+  @@index([sectionId])
+  @@index([isActive])
+  @@index([code])
+}
+
+// Mapping Result - Kết quả mapping từ document
+model MappingResult {
+  id                  String            @id @default(uuid())
+  lessonPlanId        String
+  activityId          String
+
+  // Match information
+  confidence          Float
+  matchedBy           String            // ALIAS, KEYWORD, STRUCTURE, ORDER, MULTIPLE
+  matchScore          Float?
+
+  // Mapped data
+  matchedActivity     Json?             // Copy of matched activity data
+
+  // Document location
+  documentSectionCode String?
+  documentSectionTitle String?
+  documentActivityTitle String?
+  documentParagraphs   String[]?
+
+  isUnknown           Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+
+  activity            LessonActivity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([lessonPlanId])
+  @@index([activityId])
+  @@index([confidence])
+}
+
+
+// Add relations to existing models
+// LessonPlan.documentSessions DocumentSession[]
+// LessonPlan.documentComments DocumentComment[]
+// LessonPlan.documentVersions DocumentVersion[]
+// LessonPlanSection.documentComments DocumentComment[]
+// Annotation.documentComments DocumentComment[]
+// User.documentSessions DocumentSession[]
+// User.resolvedComments DocumentComment[] @relation("ResolvedComments")
+// User.documentVersions DocumentVersion[]

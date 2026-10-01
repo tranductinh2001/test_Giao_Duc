@@ -1,0 +1,104 @@
+/**
+ * Sample JSON Patch Output
+ *
+ * Example of what the AI Suggestion Engine produces
+ */
+
+{
+  "sessionId": "sess_abc123",
+  "reviewId": "rev_xyz789",
+  "suggestions": [
+    {
+      "suggestionId": "sug_001",
+      "sessionId": "sess_abc123",
+      "reviewId": "rev_xyz789",
+      "paragraphId": "para_001",
+      "activityId": "act_001",
+      "activityTitle": "Hoạt động 1: Khởi động",
+      "sectionId": "section_001",
+      "sectionTitle": "Khởi động",
+      "rule": {
+        "ruleId": "RULE_PEDAGOGY_001",
+        "ruleName": "Hoạt động khởi động phải kích thích tư duy",
+        "category": "PEDAGOGY",
+        "severity": "WARNING",
+        "priority": 8
+      },
+      "operation": "replace",
+      "oldText": "Giáo viên giới thiệu bài học",
+      "newText": "Giáo viên tổ chức trò chơi 'Đoán từ khóa' để kích thích tư duy học sinh về chủ đề bài học",
+      "reason": "Hoạt động khởi động cần kích thích tư duy, không chỉ giới thiệu",
+      "confidence": 0.85,
+      "createdAt": "2026-07-12T10:30:00Z",
+      "status": "PENDING"
+    },
+    {
+      "suggestionId": "sug_002",
+      "sessionId": "sess_abc123",
+      "reviewId": "rev_xyz789",
+      "paragraphId": "para_002",
+      "activityId": "act_001",
+      "activityTitle": "Hoạt động 1: Khởi động",
+      "sectionId": "section_001",
+      "sectionTitle": "Khởi động",
+      "rule": {
+        "ruleId": "RULE_CONTENT_003",
+        "ruleName": "Nội dung cần có ví dụ cụ thể",
+        "category": "CONTENT",
+        "severity": "ERROR",
+        "priority": 10
+      },
+      "operation": "insertAfter",
+      "oldText": "Học sinh nắm được khái niệm",
+      "newText": "Học sinh nắm được khái niệm thông qua ví dụ: GV đưa ra 3 ví dụ về hiện tượng Vật Lý trong thực tế và yêu cầu HS phân tích",
+      "reason": "Nội dung cần có ví dụ cụ thể để học sinh dễ hiểu",
+      "confidence": 0.92,
+      "createdAt": "2026-07-12T10:30:01Z",
+      "status": "PENDING"
+    },
+    {
+      "suggestionId": "sug_003",
+      "sessionId": "sess_abc123",
+      "reviewId": "rev_xyz789",
+      "paragraphId": "para_003",
+      "activityId": "act_002",
+      "activityTitle": "Hoạt động 2: Hình thành kiến thức",
+      "sectionId": "section_002",
+      "sectionTitle": "Hình thành kiến thức",
+      "rule": {
+        "ruleId": "RULE_FORMAT_002",
+        "ruleName": "Cần có câu hỏi kiểm tra hiểu",
+        "category": "FORMAT",
+        "severity": "WARNING",
+        "priority": 6
+      },
+      "operation": "insertAfter",
+      "oldText": "Giáo viên giảng giải nội dung bài học",
+      "newText": "Giáo viên giảng giải nội dung bài học\n\nCâu hỏi kiểm tra: 'Em hãy cho biết sự khác nhau giữa A và B là gì?'",
+      "reason": "Cần có câu hỏi kiểm tra sau khi trình bày nội dung",
+      "confidence": 0.78,
+      "createdAt": "2026-07-12T10:30:02Z",
+      "status": "PENDING"
+    }
+  ],
+  "statistics": {
+    "sessionId": "sess_abc123",
+    "totalSuggestions": 3,
+    "accepted": 0,
+    "rejected": 0,
+    "pending": 3,
+    "conflicts": 0,
+    "errorCount": 1,
+    "warningCount": 2,
+    "infoCount": 0,
+    "rulesTriggered": {
+      "RULE_PEDAGOGY_001": 1,
+      "RULE_CONTENT_003": 1,
+      "RULE_FORMAT_002": 1
+    },
+    "averageConfidence": 0.85,
+    "generatedAt": "2026-07-12T10:30:00Z"
+  },
+  "conflicts": [],
+  "generatedAt": "2026-07-12T10:30:00Z"
+}

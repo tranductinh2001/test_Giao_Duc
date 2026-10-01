@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Theme Background Test</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      transition: all 0.6s;
+    }
+    
+    .container {
+      padding: 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .glass-card {
+      background-color: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    
+    button {
+      margin: 10px;
+      padding: 12px 24px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      background: #3b82f6;
+      color: white;
+      font-weight: 600;
+    }
+    
+    button:hover {
+      background: #2563eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 style="color: #1f2937; margin-bottom: 30px;">Test Theme Background</h1>
+    
+    <div style="margin-bottom: 30px;">
+      <button onclick="testSolid()">Solid Red</button>
+      <button onclick="testGradient()">Gradient Blue→Pink</button>
+      <button onclick="testMesh()">Mesh (3 colors)</button>
+      <button onclick="testRadial()">Radial Purple</button>
+      <button onclick="testReset()">Reset</button>
+    </div>
+    
+    <div class="glass-card">
+      <h2>Glass Card 1</h2>
+      <p>If you see the background color/gradient BEHIND this card, glass effect is working!</p>
+      <p>The card should be semi-transparent (85% opacity) with blur effect.</p>
+    </div>
+    
+    <div class="glass-card">
+      <h2>Glass Card 2</h2>
+      <p>Both cards should show the background through them.</p>
+      <p>Text should remain readable with high contrast.</p>
+    </div>
+    
+    <div class="glass-card">
+      <h2>Glass Card 3</h2>
+      <p>Click the buttons above to test different background types.</p>
+      <p>If background doesn't show through cards, glass effect is NOT working.</p>
+    </div>
+  </div>
+  
+  <script>
+    function testSolid() {
+      document.body.style.background = 'rgb(239, 68, 68)';
+      console.log('✅ Applied solid red background');
+    }
+    
+    function testGradient() {
+      document.body.style.background = 'linear-gradient(135deg, rgb(59, 130, 246), rgb(236, 72, 153))';
+      console.log('✅ Applied gradient blue→pink');
+    }
+    
+    function testMesh() {
+      document.body.style.background = `
+        radial-gradient(at 27% 37%, hsl(210, 40%, 48%) 0px, transparent 50%),
+        radial-gradient(at 97% 21%, hsl(142, 76%, 36%) 0px, transparent 50%),
+        radial-gradient(at 52% 99%, hsl(38, 92%, 50%) 0px, transparent 50%),
+        rgb(249, 249, 249)
+      `;
+      console.log('✅ Applied mesh gradient');
+    }
+    
+    function testRadial() {
+      document.body.style.background = 'radial-gradient(circle at center, rgb(147, 51, 234), rgb(79, 70, 229))';
+      console.log('✅ Applied radial purple');
+    }
+    
+    function testReset() {
+      document.body.style.background = 'rgb(249, 249, 249)';
+      console.log('✅ Reset to default');
+    }
+  </script>
+</body>
+</html>

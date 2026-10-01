@@ -1,0 +1,187 @@
+  private buildVisionPrompt(visionData: any): string {
+    const parts: string[] = [];
+
+    // ============================================================
+    // METADATA
+    // ============================================================
+    if (visionData && visionData.metadata) {
+      parts.push('# METADATA');
+      parts.push('Title: ' + (visionData.metadata.title || 'N/A'));
+      parts.push('Total Pages: ' + (visionData.metadata.totalPages || 'N/A'));
+      parts.push('Language: ' + (visionData.metadata.language || 'vi'));
+      parts.push('Has Tables: ' + (visionData.metadata.hasTables ? 'Yes' : 'No'));
+      parts.push('Has Images: ' + (visionData.metadata.hasImages ? 'Yes' : 'No'));
+      parts.push('Word Count: ' + (visionData.metadata.wordCount || 'N/A'));
+      parts.push('Confidence: ' + ((visionData.metadata.confidence || 0.9) * 100) + '%');
+    }
+
+    // ============================================================
+    // SECTIONS
+    // ============================================================
+    if (visionData && visionData.sections && visionData.sections.length > 0) {
+      parts.push('\n# SECTIONS (' + visionData.sections.length + ')');
+      for (let i = 0; i < visionData.sections.length; i++) {
+        const section = visionData.sections[i];
+        let pageRange = '';
+        if (section.pageStart && section.pageEnd) {
+          pageRange = ' (trang ' + section.pageStart + '-' + section.pageEnd + ')';
+        }
+        parts.push('- ' + section.title + pageRange);
+      }
+    }
+
+    // ============================================================
+    // TABLES (CRITICAL for understanding structure)
+    // ============================================================
+    if (visionData && visionData.tables && visionData.tables.length > 0) {
+      parts.push('\n# TABLES (' + visionData.tables.length + ') - ANALYZE CAREFULLY');
+
+      for (let i = 0; i < visionData.tables.length; i++) {
+        const table = visionData.tables[i];
+        parts.push('\n## Table ' + (i + 1));
+
+        // Table dimensions
+        const colCount = table.columnCount || (table.headers ? table.headers.length : null) || 'N/A';
+        const rowCount = table.rowCount || (table.rows ? table.rows.length : null) || 'N/A';
+        parts.push('Columns: ' + colCount);
+        parts.push('Rows: ' + rowCount);
+        parts.push('Page: ' + (table.pageNumber || 'N/A'));
+
+        // Headers
+        if (table.headers && table.headers.length > 0) {
+          parts.push('Headers: ' + table.headers.join(' | '));
+        }
+
+        // Merged cells
+        if (table.mergedCells && table.mergedCells.length > 0) {
+          parts.push('Merged Cells: ' + table.mergedCells.length);
+          for (let j = 0; j < Math.min(5, table.mergedCells.length); j++) {
+            const mc = table.mergedCells[j];
+            parts.push('  - Row ' + mc.row + ', Col ' + mc.col + ': rowSpan=' + mc.rowSpan + ', colSpan=' + mc.colSpan);
+          }
+        }
+
+        // Table data rows
+        if (table.rows) {
+          parts.push('\nData Rows:');
+          const rowLimit = Math.min(8, table.rows.length);
+          for (let j = 0; j < rowLimit; j++) {
+            parts.push('  ' + table.rows[j].join(' | '));
+          }
+          if (table.rows.length > 8) {
+            parts.push('  ... (' + (table.rows.length - 8) + ' more rows)');
+          }
+        }
+
+        // Column analysis
+        const colCount2 = table.columnCount || (table.headers ? table.headers.length : 0) || 0;
+        if (colCount2 >= 2) {
+          parts.push('\n### COLUMN ANALYSIS');
+          if (colCount2 === 2) {
+            parts.push('Detected 2 columns - likely: Teacher | Student');
+          } else if (colCount2 === 3) {
+            parts.push('Detected 3 columns - likely: Teacher | Student | Product');
+          } else if (colCount2 >= 4) {
+            parts.push('Detected 4+ columns - likely: Teacher | Student | Product | Assessment');
+          }
+        }
+      }
+    }
+
+    // ============================================================
+    // PAGES with BLOCKS (document hierarchy)
+    // ============================================================
+    if (visionData && visionData.pages && visionData.pages.length > 0) {
+      parts.push('\n# PAGES (' + visionData.pages.length + ')');
+
+      const pageLimit = Math.min(3, visionData.pages.length);
+      for (let i = 0; i < pageLimit; i++) {
+        const page = visionData.pages[i];
+        parts.push('\n## Page ' + page.pageNumber);
+        parts.push('Elements: ' + (page.elements ? page.elements.length : 0));
+
+        if (page.elements) {
+          const elemLimit = Math.min(15, page.elements.length);
+          for (let j = 0; j < elemLimit; j++) {
+            const elem = page.elements[j];
+            let order = '';
+            if (elem.readingOrder !== undefined) {
+              order = '[#' + elem.readingOrder + '] ';
+            }
+
+            if (elem.type === 'heading') {
+              parts.push(order + '[H' + (elem.level || 1) + '] ' + (elem.content ? elem.content.substring(0, 80) : ''));
+            } else if (elem.type === 'paragraph') {
+              parts.push(order + '[P] ' + (elem.content ? elem.content.substring(0, 150) : ''));
+            } else if (elem.type === 'table') {
+              parts.push(order + '[TABLE] rows=' + (elem.tableData && elem.tableData.rows ? elem.tableData.rows.length : 0));
+            } else if (elem.type === 'image') {
+              parts.push(order + '[IMAGE]');
+            }
+
+            // Position info (bbox)
+            if (elem.bbox) {
+              parts.push('    Position: (' + elem.bbox.x + ', ' + elem.bbox.y + ') ' + elem.bbox.width + 'x' + elem.bbox.height);
+            }
+          }
+        }
+      }
+    }
+
+    // ============================================================
+    // BLOCKS (flattened elements)
+    // ============================================================
+    if (visionData && visionData.blocks && visionData.blocks.length > 0) {
+      parts.push('\n# BLOCKS (' + visionData.blocks.length + ')');
+      const blockLimit = Math.min(20, visionData.blocks.length);
+      for (let i = 0; i < blockLimit; i++) {
+        const block = visionData.blocks[i];
+        if (block.type === 'heading') {
+          parts.push('[H' + block.level + '] ' + (block.content ? block.content.substring(0, 60) : ''));
+        } else if (block.type === 'paragraph') {
+          parts.push('[P] ' + (block.content ? block.content.substring(0, 100) : ''));
+        }
+      }
+    }
+
+    // ============================================================
+    // ACTIVITIES (if already extracted by Vision)
+    // ============================================================
+    if (visionData && visionData.activities && visionData.activities.length > 0) {
+      parts.push('\n# ACTIVITIES (' + visionData.activities.length + ')');
+      const actLimit = Math.min(10, visionData.activities.length);
+      for (let i = 0; i < actLimit; i++) {
+        const activity = visionData.activities[i];
+        parts.push('\n## ' + (activity.title || 'Activity'));
+        parts.push('Section: ' + (activity.sectionTitle || 'N/A'));
+        parts.push('Page Numbers: ' + (activity.pageNumbers ? activity.pageNumbers.join(', ') : 'N/A'));
+        parts.push('Paragraphs: ' + (activity.paragraphCount || 0));
+
+        if (activity.paragraphs && activity.paragraphs.length > 0) {
+          const paraLimit = Math.min(5, activity.paragraphs.length);
+          for (let j = 0; j < paraLimit; j++) {
+            const para = activity.paragraphs[j];
+            let prefix = '[P] ';
+            if (para.isHeading) {
+              prefix = '[H' + para.headingLevel + '] ';
+            }
+            parts.push(prefix + (para.content ? para.content.substring(0, 100) : ''));
+          }
+        }
+      }
+    }
+
+    // ============================================================
+    // IMAGES
+    // ============================================================
+    if (visionData && visionData.images && visionData.images.length > 0) {
+      parts.push('\n# IMAGES (' + visionData.images.length + ')');
+      const imgLimit = Math.min(5, visionData.images.length);
+      for (let i = 0; i < imgLimit; i++) {
+        const img = visionData.images[i];
+        parts.push('- Image: ' + (img.caption || 'N/A') + ' (Page ' + (img.pageNumber || 'N/A') + ')');
+      }
+    }
+
+    return parts.join('\n');
+  }

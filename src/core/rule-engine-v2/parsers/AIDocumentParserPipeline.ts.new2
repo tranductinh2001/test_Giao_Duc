@@ -1,0 +1,52 @@
+  private buildSectionPrompt(visionData: any, section: any): string {
+    const parts: string[] = [];
+
+    parts.push('# SECTION: ' + section.title);
+    parts.push('Type: ' + (section.type || 'CUSTOM'));
+    parts.push('Code: ' + (section.code || 'N/A'));
+
+    // Get all activities for this section
+    if (section.activities) {
+      for (let i = 0; i < section.activities.length; i++) {
+        const activity = section.activities[i];
+        parts.push('\n## Activity: ' + (activity.title || 'Unnamed'));
+        parts.push('Type: ' + (activity.type || 'CUSTOM'));
+
+        // Full paragraphs
+        if (activity.paragraphs && activity.paragraphs.length > 0) {
+          parts.push('\n### Paragraphs (' + activity.paragraphs.length + '):');
+          for (let j = 0; j < activity.paragraphs.length; j++) {
+            const para = activity.paragraphs[j];
+            parts.push('- ' + (para.content || ''));
+          }
+        }
+
+        // Tables in this activity
+        if (activity.tables) {
+          parts.push('\n### Tables:');
+          for (let t = 0; t < activity.tables.length; t++) {
+            const table = activity.tables[t];
+            if (table.headers) parts.push('Headers: ' + table.headers.join(' | '));
+            if (table.rows) {
+              for (let r = 0; r < table.rows.length; r++) {
+                parts.push('Row: ' + table.rows[r].join(' | '));
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Also get content from blocks that might not be in activities
+    if (section.blocks) {
+      parts.push('\n### Additional Blocks:');
+      for (let b = 0; b < section.blocks.length; b++) {
+        const block = section.blocks[b];
+        if (block.content) {
+          parts.push('- ' + block.content);
+        }
+      }
+    }
+
+    return parts.join('\n');
+  }
