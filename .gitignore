@@ -1,9 +1,16 @@
 # Dependencies
 node_modules
+/.pnp
+.pnp.js
 
 # Next.js build output
-.next
-out
+.next/
+out/
+build/
+dist/
+
+# TypeScript build info
+tsconfig.tsbuildinfo
 
 # Environment variables
 .env
@@ -14,11 +21,16 @@ out
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+
+# Caches
+.cache/
+storage/cache/
 
 # IDE / Editor
-.claude
-.vscode
-.idea
+.claude/
+.vscode/
+.idea/
 
 # OS
 .DS_Store
