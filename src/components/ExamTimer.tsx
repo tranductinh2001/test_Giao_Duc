@@ -51,7 +51,7 @@ export default function ExamTimer({ expiresAt, onTimeUp }: ExamTimerProps) {
   return (
     <div className="flex items-center gap-2">
       <svg
-        className="w-5 h-5 text-[hsl(var(--card-foreground))]"
+        className="w-5 h-5 text-card-foreground"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -67,17 +67,17 @@ export default function ExamTimer({ expiresAt, onTimeUp }: ExamTimerProps) {
       <span
         className={`font-mono text-lg font-bold ${
           isDanger
-            ? "timer-warning text-2xl text-[hsl(var(--destructive))]" // Pulse + larger + red when < 1 min
+            ? "timer-warning text-2xl text-destructive" // Pulse + larger + red when < 1 min
             : isWarning
-            ? "timer-warning text-[hsl(var(--destructive))]" // Pulse + red when < 5 min
-            : "text-[hsl(var(--card-foreground))]"
+            ? "timer-warning text-destructive" // Pulse + red when < 5 min
+            : "text-card-foreground"
         }`}
       >
         {timeLeft === 0 ? "Hết giờ!" : formatTime(timeLeft)}
       </span>
 
       {isWarning && (
-        <span className="text-xs text-[hsl(var(--destructive))] font-bold animate-pulse">
+        <span className="text-xs text-destructive font-bold animate-pulse">
           {isDanger ? "Sắp hết giờ!" : "Còn ít thời gian"}
         </span>
       )}

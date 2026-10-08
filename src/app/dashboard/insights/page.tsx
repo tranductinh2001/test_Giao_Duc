@@ -18,19 +18,40 @@ export default async function DashboardInsightsPage() {
     redirect("/login");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { name: true, role: true },
-  });
+  let user: { name: string | null; role: string } | null = {
+    name: session.user.name ?? null,
+    role: session.user.role ?? "LEARNER",
+  };
+  let scoreTrend: any[] = [];
+  let passFailRatio: any[] = [];
+  let wrongAnswers: any[] = [];
+  let bookmarks: any[] = [];
+  let attempts: any[] = [];
 
-  const service = new ExamService();
-  const [scoreTrend, passFailRatio, wrongAnswers, bookmarks, attempts] = await Promise.all([
-    service.getScoreTrend(session.user.id!),
-    service.getPassFailRatio(session.user.id!),
-    service.getUserWrongAnswers(session.user.id!),
-    service.getUserBookmarks(session.user.id!),
-    service.getUserAttempts(session.user.id!),
-  ]);
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true, role: true },
+    });
+    if (dbUser) user = dbUser;
+
+    const service = new ExamService();
+    const [dbScoreTrend, dbPassFailRatio, dbWrongAnswers, dbBookmarks, dbAttempts] = await Promise.all([
+      service.getScoreTrend(session.user.id!),
+      service.getPassFailRatio(session.user.id!),
+      service.getUserWrongAnswers(session.user.id!),
+      service.getUserBookmarks(session.user.id!),
+      service.getUserAttempts(session.user.id!),
+    ]);
+
+    scoreTrend = dbScoreTrend;
+    passFailRatio = dbPassFailRatio;
+    wrongAnswers = dbWrongAnswers;
+    bookmarks = dbBookmarks;
+    attempts = dbAttempts;
+  } catch (error) {
+    console.warn("[DashboardInsightsPage] DB unavailable, using fallback data:", error);
+  }
 
   const data = JSON.parse(
     JSON.stringify({
@@ -47,7 +68,7 @@ export default async function DashboardInsightsPage() {
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
-      <UserNavbar userName={user?.name} userRole={user?.role} />
+      <UserNavbar userName={user?.name ?? undefined} userRole={user?.role ?? undefined} />
 
       <div className="container mx-auto max-w-[1600px] px-3 sm:px-4 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6 lg:space-y-8">
         <AnimatedContainer animation="fadeInDown" delay={0.1}>

@@ -166,10 +166,11 @@ export async function POST(req: NextRequest) {
     // Convert sections
     if (brightoneStructured?.sections) {
       for (const section of brightoneStructured.sections) {
+        const s: any = section;
         visionData.sections.push({
-          id: section.id,
-          title: section.title || section.sectionTitle,
-          code: section.type || section.sectionCode || section.code,
+          id: s.id,
+          title: s.title || s.sectionTitle,
+          code: s.type || s.sectionCode || s.code,
         });
       }
     }

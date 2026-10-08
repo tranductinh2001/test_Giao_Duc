@@ -9,19 +9,6 @@ export const authConfig = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
     updateAge: 24 * 60 * 60,    // Refresh every 24 hours (session rotation)
   },
-  cookies: {
-    sessionToken: {
-      name: process.env.NODE_ENV === "production"
-        ? "__Secure-next-auth.session-token"
-        : "next-auth.session-token",
-      options: {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-      },
-    },
-  },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
@@ -49,8 +36,11 @@ export const authConfig = {
         return true;
       }
 
-      // 1. If already logged in and trying to access auth pages -> Redirect to dashboard
+      // 1. If already logged in and trying to access auth pages -> Redirect to appropriate panel
       if (isAuthRoute && isLoggedIn) {
+        if (userRole === "ADMIN") {
+          return Response.redirect(new URL("/admin", nextUrl));
+        }
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
 

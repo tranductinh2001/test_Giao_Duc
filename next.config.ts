@@ -4,7 +4,24 @@ const nextConfig: NextConfig = {
   turbopack: {
     resolveAlias: {
       '.prisma/client': '.prisma/client/index',
+      canvas: './src/lib/empty-module.ts',
     },
+  },
+  serverExternalPackages: ['pdfjs-dist', '@pdf-lib/fontkit', 'canvas'],
+  webpack: (config, { isServer }) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      canvas: false,
+    };
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        canvas: false,
+        fs: false,
+        path: false,
+      };
+    }
+    return config;
   },
   async headers() {
     return [

@@ -34,8 +34,8 @@ export default function DeleteCustomExamButton({ examId, examTitle }: DeleteCust
         toast.success("✅ Đã xóa đề thi thành công!", {
           duration: 3000,
           style: {
-            background: "hsl(var(--color-success))",
-            color: "hsl(var(--color-success-foreground))",
+            background: "var(--color-success)",
+            color: "var(--color-success-foreground)",
             fontWeight: "600",
           },
         });
@@ -44,8 +44,8 @@ export default function DeleteCustomExamButton({ examId, examTitle }: DeleteCust
         toast.error(data.message || "❌ Không thể xóa đề thi", {
           duration: 4000,
           style: {
-            background: "hsl(var(--color-destructive))",
-            color: "hsl(var(--color-destructive-foreground))",
+            background: "var(--color-destructive)",
+            color: "var(--color-destructive-foreground)",
             fontWeight: "600",
           },
         });
@@ -55,8 +55,8 @@ export default function DeleteCustomExamButton({ examId, examTitle }: DeleteCust
       toast.error("❌ Lỗi kết nối. Vui lòng thử lại.", {
         duration: 4000,
         style: {
-          background: "hsl(var(--color-destructive))",
-          color: "hsl(var(--color-destructive-foreground))",
+          background: "var(--color-destructive)",
+          color: "var(--color-destructive-foreground)",
           fontWeight: "600",
         },
       });

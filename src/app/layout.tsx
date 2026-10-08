@@ -4,10 +4,10 @@ import { SessionProvider } from "next-auth/react";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Inter } from "next/font/google";
 
-// Load Inter font for all text
+// Load Inter font for all text with Vietnamese support
 const inter = Inter({
   subsets: ["latin", "vietnamese"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700", "800"],
   variable: "--font-inter",
   display: "swap",
 });
@@ -35,8 +35,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`${inter.variable}`} suppressHydrationWarning>
-      <body className="min-h-screen antialiased bg-[var(--background)]" suppressHydrationWarning>
+    <html lang="vi" className={`${inter.variable} ${inter.className}`} suppressHydrationWarning>
+      <body className={`${inter.className} min-h-screen antialiased bg-background text-foreground font-sans`} suppressHydrationWarning>
         <ErrorBoundary>
           <SessionProvider>
             {children}

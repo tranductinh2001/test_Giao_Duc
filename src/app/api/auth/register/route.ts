@@ -13,11 +13,9 @@ const RegisterSchema = z.object({
   name: z.string().min(2, "Tên phải từ 2 ký tự trở lên"),
   email: z.string().email("Định dạng email không hợp lệ"),
   password: z.string()
-    .min(12, "Mật khẩu phải có ít nhất 12 ký tự")
-    .regex(/[A-Z]/, "Mật khẩu phải có ít nhất 1 chữ hoa")
-    .regex(/[a-z]/, "Mật khẩu phải có ít nhất 1 chữ thường")
-    .regex(/[0-9]/, "Mật khẩu phải có ít nhất 1 số")
-    .regex(/[^A-Za-z0-9]/, "Mật khẩu phải có ít nhất 1 ký tự đặc biệt (!@#$%^&*)"),
+    .min(8, "Mật khẩu phải có ít nhất 8 ký tự")
+    .regex(/[A-Za-z]/, "Mật khẩu phải chứa ít nhất 1 chữ cái")
+    .regex(/[0-9]/, "Mật khẩu phải chứa ít nhất 1 chữ số"),
 });
 
 export async function POST(req: NextRequest) {

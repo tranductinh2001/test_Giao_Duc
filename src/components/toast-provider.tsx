@@ -18,9 +18,9 @@ export default function ToastProvider() {
       toastOptions={{
         duration: 3000,
         style: {
-          background: 'hsl(var(--color-card))',
-          color: 'hsl(var(--color-foreground))',
-          border: '1px solid hsl(var(--color-border))',
+          background: 'var(--color-card)',
+          color: 'var(--color-foreground)',
+          border: '1px solid var(--color-border)',
           borderRadius: '12px',
           padding: '14px 18px',
           fontSize: '14px',
@@ -32,35 +32,35 @@ export default function ToastProvider() {
         },
         success: {
           style: {
-            background: 'hsl(var(--color-success))',
-            color: 'hsl(var(--color-success-foreground))',
-            border: '1px solid hsl(var(--color-success))',
+            background: 'var(--color-success)',
+            color: 'var(--color-success-foreground)',
+            border: '1px solid var(--color-success)',
           },
           iconTheme: {
-            primary: 'hsl(var(--color-success-foreground))',
-            secondary: 'hsl(var(--color-success))',
+            primary: 'var(--color-success-foreground)',
+            secondary: 'var(--color-success)',
           },
         },
         error: {
           style: {
-            background: 'hsl(var(--color-destructive))',
-            color: 'hsl(var(--color-destructive-foreground))',
-            border: '1px solid hsl(var(--color-destructive))',
+            background: 'var(--color-destructive)',
+            color: 'var(--color-destructive-foreground)',
+            border: '1px solid var(--color-destructive)',
           },
           iconTheme: {
-            primary: 'hsl(var(--color-destructive-foreground))',
-            secondary: 'hsl(var(--color-destructive))',
+            primary: 'var(--color-destructive-foreground)',
+            secondary: 'var(--color-destructive)',
           },
         },
         loading: {
           style: {
-            background: 'hsl(var(--color-primary))',
-            color: 'hsl(var(--color-primary-foreground))',
-            border: '1px solid hsl(var(--color-primary))',
+            background: 'var(--color-primary)',
+            color: 'var(--color-primary-foreground)',
+            border: '1px solid var(--color-primary)',
           },
           iconTheme: {
-            primary: 'hsl(var(--color-primary-foreground))',
-            secondary: 'hsl(var(--color-primary))',
+            primary: 'var(--color-primary-foreground)',
+            secondary: 'var(--color-primary)',
           },
         },
       }}

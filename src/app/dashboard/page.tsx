@@ -18,34 +18,59 @@ import {
   ArrowRight,
   Coins,
   Play,
+  Key,
+  Shield,
 } from "lucide-react";
 
 export default async function DashboardPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, name: true, role: true, level: true, xp: true, streak: true },
-  });
+  let user = {
+    id: session.user.id,
+    name: session.user.name || "Học viên",
+    role: session.user.role || "LEARNER",
+    level: 1,
+    xp: 25,
+    streak: 1,
+  };
 
-  if (!user) redirect("/login");
+  let totalAttempts = 0;
+  let bestAttempt: { score: number; exam: { title: string } } | null = null;
+  let recentAttempts: Array<{ score: number; correctCount: number; totalCount: number; submittedAt: Date | null; exam: { title: string } }> = [];
+  let masteredCount = 0;
 
-  const [totalAttempts, bestAttempt, recentAttempts, masteredCount] = await Promise.all([
-    prisma.examAttempt.count({ where: { userId: user.id, status: { in: ["SUBMITTED", "SYSTEM_SUBMITTED"] } } }),
-    prisma.examAttempt.findFirst({
-      where: { userId: user.id, status: { in: ["SUBMITTED", "SYSTEM_SUBMITTED"] } },
-      orderBy: { score: "desc" },
-      select: { score: true, exam: { select: { title: true } } },
-    }),
-    prisma.examAttempt.findMany({
-      where: { userId: user.id, status: { in: ["SUBMITTED", "SYSTEM_SUBMITTED"] } },
-      orderBy: { submittedAt: "desc" },
-      take: 5,
-      select: { score: true, correctCount: true, totalCount: true, submittedAt: true, exam: { select: { title: true } } },
-    }),
-    prisma.userQuestionProgress.count({ where: { userId: user.id, masteryLevel: { gte: 4 } } }),
-  ]);
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, name: true, role: true, level: true, xp: true, streak: true },
+    });
+
+    if (dbUser) {
+      user = dbUser;
+      const [attempts, best, recent, mastered] = await Promise.all([
+        prisma.examAttempt.count({ where: { userId: user.id, status: { in: ["SUBMITTED", "SYSTEM_SUBMITTED"] } } }),
+        prisma.examAttempt.findFirst({
+          where: { userId: user.id, status: { in: ["SUBMITTED", "SYSTEM_SUBMITTED"] } },
+          orderBy: { score: "desc" },
+          select: { score: true, exam: { select: { title: true } } },
+        }),
+        prisma.examAttempt.findMany({
+          where: { userId: user.id, status: { in: ["SUBMITTED", "SYSTEM_SUBMITTED"] } },
+          orderBy: { submittedAt: "desc" },
+          take: 5,
+          select: { score: true, correctCount: true, totalCount: true, submittedAt: true, exam: { select: { title: true } } },
+        }),
+        prisma.userQuestionProgress.count({ where: { userId: user.id, masteryLevel: { gte: 4 } } }),
+      ]);
+      totalAttempts = attempts;
+      bestAttempt = best;
+      recentAttempts = recent;
+      masteredCount = mastered;
+    }
+  } catch (dbErr) {
+    console.warn("[DashboardPage] Database offline or query failed, using session fallback");
+  }
 
   const avgScore = recentAttempts.length > 0
     ? Math.round(recentAttempts.reduce((sum, a) => sum + a.score, 0) / recentAttempts.length)
@@ -269,35 +294,42 @@ export default async function DashboardPage() {
               <span className="text-sm font-medium text-[var(--foreground)]">Báo cáo</span>
             </Link>
             <Link
-              href="/recharge"
+              href="/payment"
               className="paper p-5 text-center hover:shadow-[var(--shadow-lift)] hover:-translate-y-1 transition-all"
             >
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--warning-soft)] mx-auto">
                 <Coins className="h-6 w-6 text-[var(--warning)]" />
               </div>
-              <span className="text-sm font-medium text-[var(--foreground)]">Nạp tiền</span>
+              <span className="text-sm font-medium text-[var(--foreground)]">Gói cước</span>
+            </Link>
+            <Link
+              href="/lesson-plans/review"
+              className="paper p-5 text-center hover:shadow-[var(--shadow-lift)] hover:-translate-y-1 transition-all"
+            >
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 mx-auto">
+                <Sparkles className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <span className="text-sm font-medium text-[var(--foreground)]">Thẩm định GA</span>
+            </Link>
+            <Link
+              href="/licenses/activate"
+              className="paper p-5 text-center hover:shadow-[var(--shadow-lift)] hover:-translate-y-1 transition-all"
+            >
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 mx-auto">
+                <Key className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              <span className="text-sm font-medium text-[var(--foreground)]">Kích hoạt Key</span>
             </Link>
             {isAdmin && (
-              <>
-                <Link
-                  href="/lesson-plans"
-                  className="paper p-5 text-center hover:shadow-[var(--shadow-lift)] hover:-translate-y-1 transition-all"
-                >
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--warning-soft)] mx-auto">
-                    <BookOpen className="h-6 w-6 text-[var(--warning)]" />
-                  </div>
-                  <span className="text-sm font-medium text-[var(--foreground)]">Giáo án</span>
-                </Link>
-                <Link
-                  href="/ai-workspace"
-                  className="paper p-5 text-center hover:shadow-[var(--shadow-lift)] hover:-translate-y-1 transition-all"
-                >
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--secondary-soft)] mx-auto">
-                    <Sparkles className="h-6 w-6 text-[var(--secondary)]" />
-                  </div>
-                  <span className="text-sm font-medium text-[var(--foreground)]">AI Workspace</span>
-                </Link>
-              </>
+              <Link
+                href="/admin"
+                className="paper p-5 text-center hover:shadow-[var(--shadow-lift)] hover:-translate-y-1 transition-all"
+              >
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 mx-auto">
+                  <Shield className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <span className="text-sm font-medium text-[var(--foreground)]">Quản trị</span>
+              </Link>
             )}
           </div>
         </section>

@@ -11,7 +11,7 @@ const exams = [
     questionCount: 2500,
     duration: '90 phút',
     participants: 12000,
-    color: 'hsl(142, 76%, 36%)',
+    badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   },
   {
     title: 'Viên Chức Giáo Dục',
@@ -19,7 +19,7 @@ const exams = [
     questionCount: 3000,
     duration: '120 phút',
     participants: 18000,
-    color: 'hsl(210, 70%, 45%)',
+    badgeColor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
   },
   {
     title: 'Công Chức Hành Chính',
@@ -27,7 +27,7 @@ const exams = [
     questionCount: 2000,
     duration: '90 phút',
     participants: 8500,
-    color: 'hsl(38, 92%, 50%)',
+    badgeColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   },
 ];
 
@@ -42,7 +42,7 @@ export default function FeaturedExamsSection() {
           transition={{ duration: 0.5 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Đề Thi Nổi Bật</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground">Đề Thi Nổi Bật</h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Các đề thi được biên soạn bởi chuyên gia, cập nhật theo chương trình mới nhất
           </p>
@@ -52,43 +52,40 @@ export default function FeaturedExamsSection() {
           {exams.map((exam, index) => (
             <motion.div
               key={index}
-              className="p-6 rounded-xl border transition-all hover:shadow-lg"
-              style={{
-                backgroundColor: 'hsl(var(--color-card))',
-                borderColor: 'hsl(var(--color-border))',
-              }}
+              className="p-6 rounded-xl border border-border bg-card transition-all hover:shadow-lg flex flex-col justify-between"
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1, duration: 0.5 }}
               viewport={{ once: true }}
             >
-              <div
-                className="w-12 h-12 rounded-lg flex items-center justify-center mb-4"
-                style={{ backgroundColor: exam.color + '20' }}
-              >
-                <BookOpen className="w-6 h-6" style={{ color: exam.color }} />
+              <div>
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${exam.badgeColor}`}
+                >
+                  <BookOpen className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2 text-foreground">{exam.title}</h3>
+                <p className="text-muted-foreground mb-4 text-sm leading-relaxed">{exam.description}</p>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+                  <span className="flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4" />
+                    {exam.questionCount} câu
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-4 h-4" />
+                    {exam.duration}
+                  </span>
+                </div>
               </div>
-              <h3 className="text-xl font-semibold mb-2">{exam.title}</h3>
-              <p className="text-muted-foreground mb-4">{exam.description}</p>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-                <span className="flex items-center gap-1">
-                  <BookOpen className="w-4 h-4" />
-                  {exam.questionCount} câu
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  {exam.duration}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
+
+              <div className="flex items-center justify-between pt-4 border-t border-border/60">
                 <span className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Users className="w-4 h-4" />
                   {exam.participants.toLocaleString()} người
                 </span>
                 <Link
-                  href={`/exams/${exam.title.toLowerCase().replace(/\s+/g, '-')}`}
-                  className="inline-flex items-center gap-1 text-sm font-medium transition-colors hover:underline"
-                  style={{ color: exam.color }}
+                  href="/practice"
+                  className="inline-flex items-center gap-1 text-sm font-semibold text-primary transition-colors hover:underline"
                 >
                   Thi thử <ArrowRight className="w-4 h-4" />
                 </Link>

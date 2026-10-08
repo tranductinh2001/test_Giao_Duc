@@ -22,6 +22,7 @@ import {
   X,
   User,
   BookOpen,
+  Brain,
 } from "lucide-react";
 
 interface UserNavbarProps {
@@ -53,19 +54,19 @@ export default function UserNavbar({ userName, userRole }: UserNavbarProps) {
 
   const secondaryNavItems: NavItem[] = [
     { href: "/dashboard/insights", label: "Báo cáo", icon: BarChart3 },
-    { href: "/recharge", label: "Nạp tiền", icon: Coins },
+    { href: "/payment", label: "Gói cước & Nạp tiền", icon: Coins },
   ];
 
-  const teacherNavItems: NavItem[] = [
-    { href: "/lesson-plans", label: "Giáo án", icon: BookOpen },
-    { href: "/ai-workspace", label: "AI Workspace", icon: Sparkles },
+  const extraNavItems: NavItem[] = [
+    { href: "/lesson-plans/review", label: "Thẩm định giáo án (AI)", icon: Brain },
+    { href: "/licenses/activate", label: "Kích hoạt Key", icon: Shield },
   ];
 
   const isAdmin = userRole === "ADMIN";
 
   const allSecondaryItems = [
     ...secondaryNavItems,
-    ...(isAdmin ? teacherNavItems : []),
+    ...extraNavItems,
   ];
 
   // Handle scroll effect
@@ -148,8 +149,8 @@ export default function UserNavbar({ userName, userRole }: UserNavbarProps) {
         className={`
           sticky top-0 z-[100] w-full border-b transition-all duration-300
           ${scrolled
-            ? "bg-[var(--surface)]/95 backdrop-blur-md border-[var(--border)] shadow-md"
-            : "bg-[var(--surface)] border-transparent"
+            ? "bg-card/95 backdrop-blur-md border-border shadow-md"
+            : "bg-card border-transparent"
           }
         `}
       >
@@ -258,13 +259,13 @@ export default function UserNavbar({ userName, userRole }: UserNavbarProps) {
                 <span className="absolute top-2 right-2 w-2 h-2 bg-[var(--danger)] rounded-full animate-pulse" />
               </button>
 
-              {/* Quick Recharge Button */}
+              {/* Quick Payment Button */}
               <Link
-                href="/recharge"
+                href="/payment"
                 className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--warning-soft)] text-[var(--warning)] hover:bg-[var(--warning)]/20 transition-colors"
               >
                 <Coins className="h-4 w-4" />
-                <span className="text-sm font-medium">Nạp tiền</span>
+                <span className="text-sm font-medium">Gói cước</span>
               </Link>
 
               {/* User Profile Dropdown */}
@@ -494,12 +495,12 @@ export default function UserNavbar({ userName, userRole }: UserNavbarProps) {
               {/* Quick Actions */}
               <div className="border-t border-[var(--border)] pt-3 mt-3">
                 <Link
-                  href="/recharge"
+                  href="/payment"
                   onClick={() => setShowMobileMenu(false)}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[var(--warning)] bg-[var(--warning-soft)] hover:bg-[var(--warning-soft)]/70 transition-colors mb-1"
                 >
                   <Coins className="h-5 w-5" />
-                  <span>Nạp tiền</span>
+                  <span>Gói cước & Nạp tiền</span>
                 </Link>
               </div>
             </nav>

@@ -148,3 +148,38 @@ export const rateLimitConfig = config.rateLimit;
 
 export const isProduction = config.isProduction;
 export const isDevelopment = config.isDevelopment;
+
+export type AIConfigSettings = {
+  provider: string;
+  model: string;
+  apiKey: string;
+  baseUrl: string;
+  visionModel: string;
+  timeout: number;
+};
+
+export function getAIConfig(): AIConfigSettings {
+  const apiKey =
+    process.env.BEE_API_KEY ||
+    process.env.BEEKNOEE_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    '';
+
+  const baseUrl =
+    process.env.BEE_BASE_URL ||
+    process.env.BEEKNOEE_BASE_URL ||
+    'https://platform.beeknoee.com/api/v1';
+
+  const model = process.env.AI_MODEL || 'gemini-2.5-flash-lite';
+  const visionModel = process.env.VISION_MODEL || process.env.BRIGHTONE_VISION_MODEL || 'google/gemini-2.5-flash-lite';
+  const timeout = parseInt(process.env.AI_TIMEOUT || '120000', 10);
+
+  return {
+    provider: 'beeknoee',
+    apiKey,
+    baseUrl,
+    model,
+    visionModel,
+    timeout,
+  };
+}

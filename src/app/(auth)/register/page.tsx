@@ -65,10 +65,9 @@ export default function RegisterPage() {
       });
 
       if (loginRes?.error) {
-        router.push("/login?registered=true");
+        window.location.href = "/login?registered=true";
       } else {
-        router.push("/dashboard");
-        router.refresh();
+        window.location.href = "/dashboard";
       }
     } catch {
       setError("Không thể kết nối đến máy chủ.");
@@ -179,7 +178,7 @@ export default function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
             error={fieldErrors.password}
-            helpText="Tối thiểu 12&nbsp;ký&nbsp;tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc&nbsp;biệt"
+            helpText="Tối thiểu 8 ký tự, bao gồm cả chữ cái và chữ số"
           />
 
           <FormInput

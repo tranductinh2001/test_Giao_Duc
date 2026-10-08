@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       let visionTotalStudentActions = 0;
 
       if (visionResult.document) {
-        const doc = visionResult.document;
+        const doc: any = visionResult.document;
 
         // Count pages, blocks, sections
         console.log('--- Vision Result Summary ---');
@@ -187,13 +187,14 @@ export async function POST(req: NextRequest) {
       // Convert sections
       if (brightoneStructured?.sections) {
         for (const section of brightoneStructured.sections) {
+          const s: any = section;
           visionData.sections.push({
-            id: section.id,
-            title: section.title || section.sectionTitle,
-            code: section.type || section.sectionCode || section.code,
-            pageStart: section.pageNumbers?.[0] || section.pageStart,
-            pageEnd: section.pageNumbers?.[section.pageNumbers?.length - 1] || section.pageEnd,
-            order: section.order,
+            id: s.id,
+            title: s.title || s.sectionTitle,
+            code: s.type || s.sectionCode || s.code,
+            pageStart: s.pageNumbers?.[0] || s.pageStart,
+            pageEnd: s.pageNumbers?.[s.pageNumbers?.length - 1] || s.pageEnd,
+            order: s.order,
           });
         }
       }
@@ -234,22 +235,23 @@ export async function POST(req: NextRequest) {
             for (const activity of section.activities) {
               if (activity.paragraphs) {
                 for (const para of activity.paragraphs) {
-                  const pageNum = para.pageNumber || 1;
+                  const p: any = para;
+                  const pageNum = p.pageNumber || 1;
                   if (!pageMap.has(pageNum)) {
                     pageMap.set(pageNum, []);
                   }
                   const block: any = {
-                    id: para.id,
-                    type: para.isHeading ? 'heading' : 'paragraph',
-                    content: para.content,
-                    level: para.headingLevel,
+                    id: p.id,
+                    type: p.isHeading ? 'heading' : 'paragraph',
+                    content: p.content,
+                    level: p.headingLevel,
                     pageNumber: pageNum,
-                    bbox: para.bbox,
-                    readingOrder: para.order,
+                    bbox: p.bbox,
+                    readingOrder: p.order,
                   };
-                  if (para.tableData) {
+                  if (p.tableData) {
                     block.type = 'table';
-                    block.tableData = para.tableData;
+                    block.tableData = p.tableData;
                   }
                   pageMap.get(pageNum)!.push(block);
                 }

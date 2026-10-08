@@ -16,6 +16,7 @@ interface RecruitmentPost {
 
 const LINKS = [
   { label: 'Đề thi', href: '/practice' },
+  { label: 'Thẩm định giáo án (AI)', href: '/lesson-plans/review' },
   { label: 'Khóa học', href: '/dashboard/exams' },
   { label: 'Tuyển dụng', href: '/recruitment' },
   { label: 'FAQ', href: '/faq' },
@@ -24,8 +25,8 @@ const LINKS = [
 const MOBILE_LINKS = [
   { label: 'Trang chủ', href: '/' },
   { label: 'Đề thi', href: '/practice' },
+  { label: 'Thẩm định giáo án (AI)', href: '/lesson-plans/review' },
   { label: 'Khóa học', href: '/dashboard/exams' },
-  { label: 'Phân tích giáo án', href: '/lesson-plans' },
   { label: 'Tuyển dụng', href: '/recruitment' },
   { label: 'FAQ', href: '/faq' },
   { label: 'Góp ý', href: '/feedback' },
@@ -104,9 +105,8 @@ export function ProfessionalHeader() {
       {/* Announcement Bar - Premium Glassmorphism */}
       {hasAnnouncement && (
         <div
-          className="fixed inset-x-0 top-0 z-[60] border-b border-white/10"
+          className="fixed inset-x-0 top-0 z-[60] border-b border-white/10 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900"
           style={{
-            background: 'linear-gradient(135deg, hsl(var(--color-primary) / 0.95) 0%, hsl(250 60% 45% / 0.95) 100%)',
             maxWidth: '100vw',
             overflowX: 'hidden'
           }}
@@ -191,8 +191,7 @@ export function ProfessionalHeader() {
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-primary-foreground shadow-lg shadow-primary/25 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-primary/30 transition-all duration-300"
-                style={{ background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(210 70% 55%) 100%)' }}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-primary/30 transition-all duration-300"
               >
                 <GraduationCap className="h-5 w-5" strokeWidth={2.5} />
               </div>
@@ -216,15 +215,13 @@ export function ProfessionalHeader() {
                 </Link>
               )}
 
-              {/* Play Now Button - Mobile */}
+              {/* Practice Button - Mobile */}
               <Link
-                href="/dashboard"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs font-bold shadow-md hover:shadow-lg hover:brightness-110 transition-all flex-shrink-0"
+                href="/practice"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold shadow-md hover:brightness-110 transition-all flex-shrink-0"
               >
-                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                </svg>
-                <span>Chơi ngay</span>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Luyện thi</span>
               </Link>
 
               {/* Spacer */}
@@ -272,8 +269,7 @@ export function ProfessionalHeader() {
                   </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: '/' })}
-                    className="h-10 px-5 text-sm font-semibold rounded-xl text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] flex items-center gap-2"
-                    style={{ background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(210 70% 55%) 100%)' }}
+                    className="h-10 px-5 text-sm font-semibold rounded-xl text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] bg-primary flex items-center gap-2"
                   >
                     <LogOut className="w-4 h-4" />
                     Đăng Xuất
@@ -288,8 +284,7 @@ export function ProfessionalHeader() {
                   </Link>
                   <Link href="/register">
                     <button
-                      className="h-10 px-5 text-sm font-semibold rounded-xl text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
-                      style={{ background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(210 70% 55%) 100%)' }}
+                      className="h-10 px-5 text-sm font-semibold rounded-xl text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] bg-primary"
                     >
                       Bắt Đầu Học
                     </button>
@@ -329,8 +324,7 @@ export function ProfessionalHeader() {
             <div className="flex-shrink-0 flex h-14 items-center justify-between border-b border-border/50 px-5">
               <div className="flex items-center gap-2.5">
                 <div
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-foreground"
-                  style={{ background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(210 70% 55%) 100%)' }}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground"
                 >
                   <GraduationCap className="h-4 w-4" />
                 </div>
@@ -385,8 +379,7 @@ export function ProfessionalHeader() {
                     </Link>
                     <button
                       onClick={() => signOut({ callbackUrl: '/' })}
-                      className="w-full h-12 rounded-xl text-primary-foreground font-semibold transition-all duration-300 hover:-translate-y-0.5 shadow-lg shadow-primary/20 text-sm flex items-center justify-center gap-2"
-                      style={{ background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(210 70% 55%) 100%)' }}
+                      className="w-full h-12 rounded-xl text-primary-foreground font-semibold transition-all duration-300 hover:-translate-y-0.5 shadow-lg shadow-primary/20 text-sm flex items-center justify-center gap-2 bg-primary"
                     >
                       <LogOut className="w-4 h-4" />
                       Đăng Xuất
@@ -401,8 +394,7 @@ export function ProfessionalHeader() {
                     </Link>
                     <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
                       <button
-                        className="w-full h-12 rounded-xl text-primary-foreground font-semibold transition-all duration-300 hover:-translate-y-0.5 shadow-lg shadow-primary/20 text-sm"
-                        style={{ background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(210 70% 55%) 100%)' }}
+                        className="w-full h-12 rounded-xl text-primary-foreground font-semibold transition-all duration-300 hover:-translate-y-0.5 shadow-lg shadow-primary/20 text-sm bg-primary"
                       >
                         Bắt Đầu Học
                       </button>

@@ -13,7 +13,7 @@ const footerLinks = {
     { label: 'Giới thiệu', href: '#' },
     { label: 'Khóa học', href: '/dashboard/exams' },
     { label: 'Ôn thi viên chức', href: '/practice' },
-    { label: 'Phân tích giáo án AI', href: '/lesson-plans' },
+    { label: 'Thẩm định giáo án AI', href: '/lesson-plans/review' },
     { label: 'Ngân hàng câu hỏi', href: '/dashboard' },
   ],
   resources: [
@@ -32,28 +32,17 @@ const footerLinks = {
 export function ModernFooter({ className = '' }: ModernFooterProps) {
   return (
     <footer
-      className={`relative overflow-hidden ${className}`}
-      style={{
-        background: 'linear-gradient(to bottom, hsl(var(--color-background)), hsl(var(--color-card)))',
-        borderTop: '1px solid hsl(var(--color-border) / 0.5)',
-      }}
+      className={`relative overflow-hidden bg-gradient-to-b from-background to-card border-t border-border ${className}`}
     >
       {/* Top gradient line */}
       <div
-        className="absolute top-0 left-0 right-0 h-px"
-        style={{
-          background: 'linear-gradient(90deg, transparent 0%, hsl(var(--color-primary) / 0.5) 50%, transparent 100%)',
-        }}
+        className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent"
       />
 
       {/* Background decorations */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
         <div
-          className="absolute bottom-0 left-1/4 w-96 h-96 opacity-5"
-          style={{
-            background: 'radial-gradient(circle, hsl(var(--color-primary)) 0%, transparent 70%)',
-            filter: 'blur(80px)',
-          }}
+          className="absolute bottom-0 left-1/4 w-96 h-96 opacity-5 bg-primary rounded-full blur-3xl"
         />
       </div>
 
@@ -68,11 +57,7 @@ export function ModernFooter({ className = '' }: ModernFooterProps) {
           <div className="lg:col-span-2">
             <Link href="/" className="inline-flex items-center gap-2.5 group mb-5 sm:mb-6">
               <motion.div
-                className="grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-xl text-primary-foreground shadow-lg"
-                style={{
-                  background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(210 70% 55%) 100%)',
-                  boxShadow: '0 4px 20px hsl(var(--color-primary) / 0.3)',
-                }}
+                className="grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25"
                 whileHover={{ scale: 1.05 }}
                 transition={{ duration: 0.2 }}
               >
@@ -209,11 +194,7 @@ export function ModernFooter({ className = '' }: ModernFooterProps) {
           transition={{ duration: 0.5 }}
         >
           <div
-            className="relative rounded-2xl overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, hsl(var(--color-primary) / 0.1) 0%, hsl(var(--color-primary) / 0.05) 100%)',
-              border: '1px solid hsl(var(--color-primary) / 0.15)',
-            }}
+            className="relative rounded-2xl overflow-hidden bg-primary/5 border border-primary/15"
           >
             <div className="p-6 sm:p-8 md:p-10">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
@@ -232,11 +213,7 @@ export function ModernFooter({ className = '' }: ModernFooterProps) {
                     className="h-11 sm:h-12 px-4 rounded-xl text-sm bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 w-full md:w-64"
                   />
                   <motion.button
-                    className="h-11 sm:h-12 px-5 sm:px-6 rounded-xl text-sm font-semibold text-primary-foreground transition-all duration-200 flex-shrink-0"
-                    style={{
-                      background: 'linear-gradient(135deg, hsl(var(--color-primary)) 0%, hsl(210 70% 55%) 100%)',
-                      boxShadow: '0 4px 15px hsl(var(--color-primary) / 0.3)',
-                    }}
+                    className="h-11 sm:h-12 px-5 sm:px-6 rounded-xl text-sm font-semibold bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:brightness-110 transition-all duration-200 flex-shrink-0"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
@@ -250,8 +227,7 @@ export function ModernFooter({ className = '' }: ModernFooterProps) {
 
         {/* Bottom bar */}
         <div
-          className="pt-6 sm:pt-8 border-t border-border/50"
-          style={{ borderColor: 'hsl(var(--color-border) / 0.5)' }}
+          className="pt-6 sm:pt-8 border-t border-border"
         >
           <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground text-center">
             <p>© {new Date().getFullYear()} VCGo Education. Tất cả quyền được bảo lưu.</p>

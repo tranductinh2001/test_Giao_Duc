@@ -61,8 +61,7 @@ function LoginForm() {
           callbackUrl ||
           (session?.user?.role === "ADMIN" ? "/admin" : "/dashboard");
 
-        router.push(nextUrl);
-        router.refresh();
+        window.location.href = nextUrl;
       }
     } catch {
       setError("Không thể kết nối đến máy chủ.");

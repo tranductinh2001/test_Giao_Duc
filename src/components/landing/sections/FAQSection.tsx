@@ -50,11 +50,7 @@ export default function FAQSection() {
           {faqs.map((faq, index) => (
             <motion.div
               key={index}
-              className="rounded-xl border overflow-hidden"
-              style={{
-                backgroundColor: 'hsl(var(--color-card))',
-                borderColor: 'hsl(var(--color-border))',
-              }}
+              className="rounded-xl border border-border bg-card overflow-hidden shadow-sm"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05, duration: 0.4 }}

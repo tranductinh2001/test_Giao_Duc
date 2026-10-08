@@ -13,7 +13,7 @@ const prismaClientSingleton = () => {
 
   return new PrismaClient({
     adapter,
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    log: process.env.PRISMA_LOG === "true" ? ["error", "warn"] : ["warn"],
     // Increase transaction timeout for large document processing
     transactionOptions: {
       maxWait: 30000, // 30 seconds max wait for transaction

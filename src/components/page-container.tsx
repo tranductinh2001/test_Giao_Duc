@@ -31,7 +31,7 @@ export default function PageContainer({
   maxWidth = "7xl",
 }: PageContainerProps) {
   return (
-    <div className="min-h-screen bg-[hsl(var(--background))]">
+    <div className="min-h-screen bg-background">
       {showNavbar && <UserNavbar userName={userName} userRole={userRole} />}
 
       <div className={`mx-auto max-w-${maxWidth} px-4 sm:px-6 py-6`}>

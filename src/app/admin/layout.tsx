@@ -47,22 +47,10 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: "Tổng quan", href: "/admin", icon: BarChart3 },
-  { name: "Sách giáo khoa", href: "/admin/textbooks", icon: BookOpen },
-  {
-    name: "Giáo án",
-    icon: Upload,
-    children: [
-      { name: "Tải lên giáo án", href: "/lesson-plans/upload", icon: Upload },
-      { name: "Danh sách giáo án", href: "/lesson-plans", icon: List },
-      { name: "Review Workspace", href: "/lesson-plans/review", icon: Brain },
-      { name: "Lịch sử review", href: "/lesson-plans/history", icon: History },
-    ]
-  },
-  { name: "Văn bản", href: "/admin/circulars", icon: FolderOpen },
+  { name: "Thẩm định giáo án (AI)", href: "/admin/lesson-plans/evaluate", icon: Brain },
   { name: "Ngân hàng câu hỏi", href: "/admin/questions", icon: HelpCircle },
   { name: "Ngân hàng đề thi", href: "/admin/exams", icon: FileText },
   { name: "Danh mục", href: "/admin/categories", icon: FolderOpen },
-  { name: "Phương pháp GD", href: "/admin/teaching-methods", icon: Sparkles },
   { name: "Tuyển dụng", href: "/admin/recruitment", icon: BookOpen },
   { name: "Người dùng", href: "/admin/users", icon: Users },
   { name: "License", href: "/admin/licenses", icon: Key },
@@ -334,7 +322,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         "flex items-center justify-between w-full gap-2 rounded-[var(--radius-sm)] px-3 py-2.5 text-sm font-medium transition-colors",
                         active
                           ? "bg-[var(--surface)] text-[var(--primary)] shadow-[var(--shadow-paper)] border border-[var(--border)]"
-                          : "text-[var(--foreground)] hover:bg-[var(--surface)]/70"
+                          : "text-[var(--foreground)] hover:bg-[var(--kraft)]"
                       )}
                       title={sidebarCollapsed ? item.name : undefined}
                     >
@@ -381,7 +369,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     "flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-sm font-medium transition-colors",
                     active
                       ? "bg-[var(--surface)] text-[var(--primary)] shadow-[var(--shadow-paper)] border border-[var(--border)]"
-                      : "text-[var(--foreground)] hover:bg-[var(--surface)]/70"
+                      : "text-[var(--foreground)] hover:bg-[var(--kraft)]"
                   )}
                   title={sidebarCollapsed ? item.name : undefined}
                 >
@@ -397,7 +385,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="space-y-1">
             <Link
               href="/dashboard"
-              className="flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--surface)]/70"
+              className="flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--kraft)]"
               title={sidebarCollapsed ? "Dashboard" : undefined}
             >
               <LayoutDashboard className="h-4 w-4 flex-shrink-0" />
@@ -405,7 +393,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
             <Link
               href="/profile"
-              className="flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--surface)]/70"
+              className="flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--kraft)]"
               title={sidebarCollapsed ? "Hồ sơ" : undefined}
             >
               <User className="h-4 w-4 flex-shrink-0" />
@@ -468,46 +456,57 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main Content - Education Workspace Topbar */}
-      <main className="flex-1 overflow-y-auto pt-14 lg:pt-0">
-        {/* Topbar */}
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 lg:px-6">
-          {/* Breadcrumb / Search */}
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 text-sm text-[var(--muted)]">
-              <span>Admin</span>
-              <ChevronRight className="h-4 w-4" />
-              <span className="text-[var(--foreground)] font-medium">
-                {navigation.find(n => n.href && isActive(n.href))?.name || 'Tổng quan'}
-              </span>
+      {(() => {
+        const isEvaluatePage = pathname?.startsWith("/admin/lesson-plans/evaluate");
+        return (
+          <main className={cn(
+            "flex-1",
+            isEvaluatePage ? "h-screen overflow-hidden flex flex-col pt-14 lg:pt-0" : "overflow-y-auto pt-14 lg:pt-0"
+          )}>
+            {!isEvaluatePage && (
+              <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 lg:px-6">
+                {/* Breadcrumb / Search */}
+                <div className="flex items-center gap-4">
+                  <div className="hidden md:flex items-center gap-2 text-sm text-[var(--muted)]">
+                    <span>Admin</span>
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="text-[var(--foreground)] font-medium">
+                      {navigation.find(n => n.href && isActive(n.href))?.name || 'Tổng quan'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Search */}
+                <div className="hidden lg:flex items-center gap-2 h-10 px-3 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-paper)] min-w-[280px]">
+                  <Search className="h-4 w-4 text-[var(--muted)]" />
+                  <input
+                    type="search"
+                    placeholder="Tìm kiếm..."
+                    className="flex-1 border-0 outline-0 bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted)]"
+                  />
+                </div>
+
+                {/* Right Actions */}
+                <div className="flex items-center gap-2">
+                  <button className="relative flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] text-[var(--muted)] hover:bg-[var(--kraft)] hover:text-[var(--foreground)] transition-colors">
+                    <Bell className="h-4 w-4" />
+                    <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-[var(--danger)] rounded-full border border-[var(--surface)]"></span>
+                  </button>
+                  <button className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] text-[var(--muted)] hover:bg-[var(--kraft)] hover:text-[var(--foreground)] transition-colors">
+                    <Settings2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </header>
+            )}
+
+            <div className={cn(
+              isEvaluatePage ? "flex-1 h-full w-full overflow-hidden p-0" : "p-4 lg:p-6 min-h-full w-full"
+            )}>
+              {children}
             </div>
-          </div>
-
-          {/* Search */}
-          <div className="hidden lg:flex items-center gap-2 h-10 px-3 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-paper)] min-w-[280px]">
-            <Search className="h-4 w-4 text-[var(--muted)]" />
-            <input
-              type="search"
-              placeholder="Tìm kiếm..."
-              className="flex-1 border-0 outline-0 bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted)]"
-            />
-          </div>
-
-          {/* Right Actions */}
-          <div className="flex items-center gap-2">
-            <button className="relative flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] text-[var(--muted)] hover:bg-[var(--kraft)] hover:text-[var(--foreground)] transition-colors">
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-[var(--danger)] rounded-full border border-[var(--surface)]"></span>
-            </button>
-            <button className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] text-[var(--muted)] hover:bg-[var(--kraft)] hover:text-[var(--foreground)] transition-colors">
-              <Settings2 className="h-4 w-4" />
-            </button>
-          </div>
-        </header>
-
-        <div className="p-4 lg:p-6 min-h-full w-full">
-          {children}
-        </div>
-      </main>
+          </main>
+        );
+      })()}
       <ToastProvider />
     </div>
   );

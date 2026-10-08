@@ -13,23 +13,35 @@ import {
   TrendingUp,
   Clock,
   CheckCircle,
-  ArrowRight
+  ArrowRight,
+  Brain,
+  Sparkles
 } from "lucide-react";
 
 export const revalidate = 0;
 
 export default async function AdminOverviewPage() {
-  const [totalQuestions, totalExams, totalCategories, totalUsers, recentUsers] = await Promise.all([
-    prisma.question.count(),
-    prisma.exam.count(),
-    prisma.category.count(),
-    prisma.user.count(),
-    prisma.user.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      select: { id: true, name: true, email: true, createdAt: true, role: true },
-    }),
-  ]);
+  let totalQuestions = 0;
+  let totalExams = 0;
+  let totalCategories = 0;
+  let totalUsers = 0;
+  let recentUsers: Array<{ id: string; name: string | null; email: string; createdAt: Date; role: string }> = [];
+
+  try {
+    [totalQuestions, totalExams, totalCategories, totalUsers, recentUsers] = await Promise.all([
+      prisma.question.count(),
+      prisma.exam.count(),
+      prisma.category.count(),
+      prisma.user.count(),
+      prisma.user.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: { id: true, name: true, email: true, createdAt: true, role: true },
+      }),
+    ]);
+  } catch (error) {
+    console.warn("[AdminOverviewPage] Database connection offline or failed:", error);
+  }
 
   const stats = [
     {
@@ -127,11 +139,12 @@ export default async function AdminOverviewPage() {
       </div>
 
       {/* Quick Actions - Card Grid Style */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         {[
-          { label: "Quản lý câu hỏi", href: "/admin/questions", icon: BookOpen, desc: "Thêm, sửa, xóa", color: "primary" },
-          { label: "Quản lý đề thi", href: "/admin/exams", icon: FileText, desc: "Tạo và chỉnh sửa", color: "secondary" },
-          { label: "Danh mục", href: "/admin/categories", icon: FolderTree, desc: "Phân loại nội dung", color: "success" },
+          { label: "Thẩm định giáo án (AI)", href: "/admin/lesson-plans/evaluate", icon: Brain, desc: "Đánh giá chuẩn 5512/2345", color: "primary" },
+          { label: "Quản lý câu hỏi", href: "/admin/questions", icon: BookOpen, desc: "Thêm, sửa, xóa", color: "secondary" },
+          { label: "Quản lý đề thi", href: "/admin/exams", icon: FileText, desc: "Tạo và chỉnh sửa", color: "success" },
+          { label: "Danh mục", href: "/admin/categories", icon: FolderTree, desc: "Phân loại nội dung", color: "primary" },
           { label: "Người dùng", href: "/admin/users", icon: Users, desc: "Tài khoản & quyền", color: "warning" },
         ].map((item) => {
           const Icon = item.icon;

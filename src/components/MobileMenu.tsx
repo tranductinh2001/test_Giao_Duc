@@ -177,7 +177,7 @@ export default function MobileMenu({ isOpen, onClose, userName, userRole }: Mobi
             {/* Bottom Actions - Key buttons */}
             <div className="mt-6 space-y-2 border-t border-[var(--border)] pt-4">
               <Link
-                href="/license"
+                href="/licenses/activate"
                 onClick={onClose}
                 className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-[var(--warning-soft)] text-[var(--warning)] border border-[var(--border)] hover:bg-[var(--warning-soft)]/80 transition-colors"
               >
@@ -185,7 +185,7 @@ export default function MobileMenu({ isOpen, onClose, userName, userRole }: Mobi
                 <span>Kích hoạt Key</span>
               </Link>
               <Link
-                href="/recharge"
+                href="/payment"
                 onClick={onClose}
                 className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-[var(--success)] text-[var(--foreground-inverted)] hover:bg-[var(--success)]/90 transition-colors"
               >

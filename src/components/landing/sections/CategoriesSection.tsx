@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
 const categories = [
-  { name: 'Viên Chức Y Tế', count: 2500, color: 'hsl(142, 76%, 36%)' },
-  { name: 'Viên Chức Giáo Dục', count: 3000, color: 'hsl(210, 70%, 45%)' },
-  { name: 'Công Chức Hành Chính', count: 2000, color: 'hsl(38, 92%, 50%)' },
-  { name: 'Viên Chức Tài Chính', count: 1800, color: 'hsl(280, 65%, 50%)' },
-  { name: 'Viên Chức Văn Hóa', count: 1500, color: 'hsl(190, 70%, 40%)' },
-  { name: 'Viên Chức Lao Động', count: 1200, color: 'hsl(25, 95%, 55%)' },
+  { name: 'Viên Chức Y Tế', count: 2500, dotColor: 'bg-emerald-500' },
+  { name: 'Viên Chức Giáo Dục', count: 3000, dotColor: 'bg-blue-500' },
+  { name: 'Công Chức Hành Chính', count: 2000, dotColor: 'bg-amber-500' },
+  { name: 'Viên Chức Tài Chính', count: 1800, dotColor: 'bg-purple-500' },
+  { name: 'Viên Chức Văn Hóa', count: 1500, dotColor: 'bg-cyan-500' },
+  { name: 'Viên Chức Lao Động', count: 1200, dotColor: 'bg-orange-500' },
 ];
 
 export default function CategoriesSection() {
@@ -24,7 +24,7 @@ export default function CategoriesSection() {
           transition={{ duration: 0.5 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Danh Mục Thi</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground">Danh Mục Thi</h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Lựa chọn danh mục phù hợp với mục tiêu nghề nghiệp của bạn
           </p>
@@ -40,23 +40,18 @@ export default function CategoriesSection() {
               viewport={{ once: true }}
             >
               <Link
-                href={`/categories/${category.name.toLowerCase().replace(/\s+/g, '-')}`}
-                className="flex items-center justify-between p-4 rounded-xl border transition-all hover:shadow-md"
-                style={{
-                  backgroundColor: 'hsl(var(--color-card))',
-                  borderColor: 'hsl(var(--color-border))',
-                }}
+                href="/practice"
+                className="flex items-center justify-between p-4 rounded-xl border border-border bg-card transition-all hover:shadow-md hover:border-primary/40 group"
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: category.color }}
+                    className={`w-3 h-3 rounded-full ${category.dotColor}`}
                   />
-                  <span className="font-medium">{category.name}</span>
+                  <span className="font-medium text-foreground group-hover:text-primary transition-colors">{category.name}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">{category.count} câu</span>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                 </div>
               </Link>
             </motion.div>
