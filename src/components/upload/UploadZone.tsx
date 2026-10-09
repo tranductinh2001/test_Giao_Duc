@@ -19,6 +19,7 @@ interface UploadZoneProps {
   isLoading: boolean;
   progress: string;
   error: string | null;
+  isQuotaExceeded?: boolean;
 }
 
 export default function UploadZone({
@@ -27,6 +28,7 @@ export default function UploadZone({
   isLoading,
   progress,
   error,
+  isQuotaExceeded = false,
 }: UploadZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -111,17 +113,21 @@ export default function UploadZone({
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <label className="cursor-pointer">
+            <label className={isQuotaExceeded ? "cursor-not-allowed opacity-60" : "cursor-pointer"}>
               <input
                 type="file"
                 accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 className="hidden"
                 onChange={handleFileSelect}
-                disabled={isLoading}
+                disabled={isLoading || isQuotaExceeded}
               />
-              <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs sm:text-sm rounded-xl shadow-sm hover:shadow transition-all active:scale-[0.98]">
+              <span className={`inline-flex items-center gap-2 px-5 py-2.5 font-semibold text-xs sm:text-sm rounded-xl shadow-sm transition-all ${
+                isQuotaExceeded
+                  ? 'bg-muted text-muted-foreground border border-border cursor-not-allowed'
+                  : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:shadow active:scale-[0.98]'
+              }`}>
                 <FileText className="w-4 h-4" />
-                Chọn Tệp Từ Thiết Bị
+                {isQuotaExceeded ? 'Đã Hết Lượt Thẩm Định' : 'Chọn Tệp Từ Thiết Bị'}
               </span>
             </label>
 
@@ -130,10 +136,14 @@ export default function UploadZone({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onLoadSample();
+                  if (!isQuotaExceeded) onLoadSample();
                 }}
-                disabled={isLoading}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-background hover:bg-accent text-foreground font-semibold text-xs sm:text-sm rounded-xl border border-border/80 shadow-xs transition-all active:scale-[0.98]"
+                disabled={isLoading || isQuotaExceeded}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 font-semibold text-xs sm:text-sm rounded-xl border border-border/80 shadow-xs transition-all ${
+                  isQuotaExceeded
+                    ? 'bg-muted text-muted-foreground opacity-60 cursor-not-allowed'
+                    : 'bg-background hover:bg-accent text-foreground active:scale-[0.98]'
+                }`}
               >
                 <Sparkles className="w-4 h-4 text-amber-500" />
                 Thử Ngay Giáo Án Mẫu

@@ -57,8 +57,10 @@ export default function UserNavbar({ userName, userRole }: UserNavbarProps) {
     { href: "/payment", label: "Gói cước & Nạp tiền", icon: Coins },
   ];
 
+  const isStaffOrAdmin = userRole === "TEACHER" || userRole === "ADMIN";
+
   const extraNavItems: NavItem[] = [
-    { href: "/lesson-plans/review", label: "Thẩm định giáo án (AI)", icon: Brain },
+    ...(isStaffOrAdmin ? [{ href: "/lesson-plans/review", label: "Thẩm định giáo án (AI)", icon: Brain }] : []),
     { href: "/licenses/activate", label: "Kích hoạt Key", icon: Shield },
   ];
 

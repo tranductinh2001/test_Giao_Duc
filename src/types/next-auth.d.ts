@@ -7,6 +7,9 @@ declare module "next-auth" {
       role: "ADMIN" | "TEACHER" | "LEARNER";
       status: "ACTIVE" | "LOCKED" | "INACTIVE";
       licenseExpiresAt: Date | string | null;
+      reviewQuotaTotal?: number;
+      reviewQuotaUsed?: number;
+      tokensUsed?: number;
     } & DefaultSession["user"]
   }
 
@@ -15,6 +18,9 @@ declare module "next-auth" {
     role?: "ADMIN" | "TEACHER" | "LEARNER";
     status?: "ACTIVE" | "LOCKED" | "INACTIVE";
     licenseExpiresAt?: Date | string | null;
+    reviewQuotaTotal?: number;
+    reviewQuotaUsed?: number;
+    tokensUsed?: number;
   }
 }
 
@@ -24,5 +30,8 @@ declare module "next-auth/jwt" {
     role?: "ADMIN" | "TEACHER" | "LEARNER";
     status?: "ACTIVE" | "LOCKED" | "INACTIVE";
     licenseExpiresAt?: Date | string | null;
+    reviewQuotaTotal?: number;
+    reviewQuotaUsed?: number;
+    tokensUsed?: number;
   }
 }

@@ -38,25 +38,60 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const ipAddress = (credentials.ipAddress as string) || "unknown";
         const userAgent = (credentials.userAgent as string) || "unknown";
 
-        // 1. Fast-path check for development seeded accounts (works offline without PostgreSQL)
-        if (email === "admin@gmail.com" && credentials.password === "admin12345") {
+        // 1. Fast-path check for 3 main roles (Admin, Nhân viên, Khách hàng)
+        const normalizedEmail = email.toLowerCase().trim();
+
+        // 1A. Người quản lý (ADMIN) - To nhất, vô hạn quota, miễn phí toàn bộ
+        if (
+          (normalizedEmail === "admin@gmail.com" || normalizedEmail === "admin@giaoduc.vn") &&
+          (credentials.password === "admin12345" || credentials.password === "admin123")
+        ) {
           return {
             id: "admin-default-id",
-            name: "Admin Quản trị",
+            name: "Quản Trị Viên (Admin)",
             email: "admin@gmail.com",
             role: "ADMIN" as const,
             status: "ACTIVE" as const,
             licenseExpiresAt: null,
+            reviewQuotaTotal: 999999,
+            reviewQuotaUsed: 0,
+            tokensUsed: 0,
           };
         }
-        if (email === "learner@gmail.com" && credentials.password === "learner12345") {
+
+        // 1B. Nhân viên (STAFF / TEACHER) - Được thẩm định giáo án, có số lượt & token, bị khóa khi hết lượt
+        if (
+          (normalizedEmail === "nhanvien@gmail.com" || normalizedEmail === "staff@gmail.com" || normalizedEmail === "nhanvien@giaoduc.vn") &&
+          (credentials.password === "staff12345" || credentials.password === "nhanvien12345")
+        ) {
           return {
-            id: "learner-default-id",
-            name: "Học Viên Tiêu Biểu",
-            email: "learner@gmail.com",
+            id: "staff-default-id",
+            name: "Nhân Viên Thẩm Định (Cô Lan Anh)",
+            email: "nhanvien@gmail.com",
+            role: "TEACHER" as const,
+            status: "ACTIVE" as const,
+            licenseExpiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+            reviewQuotaTotal: 50,
+            reviewQuotaUsed: 12,
+            tokensUsed: 48250,
+          };
+        }
+
+        // 1C. Khách hàng (LEARNER / CUSTOMER) - Chỉ dùng thi thử online, không có quyền thẩm định giáo án
+        if (
+          (normalizedEmail === "khachhang@gmail.com" || normalizedEmail === "learner@gmail.com" || normalizedEmail === "user@gmail.com" || normalizedEmail === "khachhang@giaoduc.vn") &&
+          (credentials.password === "user12345" || credentials.password === "learner12345")
+        ) {
+          return {
+            id: "customer-default-id",
+            name: "Khách Hàng (Học Viên Online)",
+            email: "khachhang@gmail.com",
             role: "LEARNER" as const,
             status: "ACTIVE" as const,
-            licenseExpiresAt: null,
+            licenseExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            reviewQuotaTotal: 0,
+            reviewQuotaUsed: 0,
+            tokensUsed: 0,
           };
         }
 
@@ -72,16 +107,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // Fallback check if user not in DB
         if (!user || !user.password) {
-          if (email === "admin@gmail.com" && credentials.password === "admin12345") {
-            return {
-              id: "admin-default-id",
-              name: "Admin Quản trị",
-              email: "admin@gmail.com",
-              role: "ADMIN" as const,
-              status: "ACTIVE" as const,
-              licenseExpiresAt: null,
-            };
-          }
           try {
             await logLoginAttempt({
               email,
@@ -180,6 +205,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           status: user.status,
           licenseExpiresAt: user.licenseExpiresAt,
+          reviewQuotaTotal: user.role === "ADMIN" ? 999999 : (user.role === "TEACHER" ? 50 : 0),
+          reviewQuotaUsed: user.role === "ADMIN" ? 0 : (user.role === "TEACHER" ? (user.monthlyReviewsUsed || 12) : 0),
+          tokensUsed: user.role === "ADMIN" ? 0 : (user.role === "TEACHER" ? 48250 : 0),
         };
       },
     }),

@@ -14,35 +14,55 @@ const prisma = new PrismaClient({
 async function main() {
   // Hash default passwords
   const adminPassword = await bcrypt.hash("admin12345", 10);
-  const learnerPassword = await bcrypt.hash("learner12345", 10);
+  const staffPassword = await bcrypt.hash("staff12345", 10);
+  const userPassword = await bcrypt.hash("user12345", 10);
 
-  // 1. Seed Users
+  // 1. Seed Users (3 Main Roles: Admin, Nhân viên, Khách hàng)
   const admin = await prisma.user.upsert({
     where: { email: "admin@gmail.com" },
     update: {},
     create: {
       email: "admin@gmail.com",
-      name: "Admin Quản trị",
+      name: "Quản Trị Viên (Admin)",
       password: adminPassword,
       role: "ADMIN",
       status: "ACTIVE",
     },
   });
 
-  const learner = await prisma.user.upsert({
-    where: { email: "learner@gmail.com" },
+  const staff = await prisma.user.upsert({
+    where: { email: "nhanvien@gmail.com" },
     update: {},
     create: {
-      email: "learner@gmail.com",
-      name: "Học Viên Tiêu Biểu",
-      password: learnerPassword,
+      email: "nhanvien@gmail.com",
+      name: "Nhân Viên Thẩm Định (Cô Lan Anh)",
+      password: staffPassword,
+      role: "TEACHER",
+      status: "ACTIVE",
+      monthlyReviewsUsed: 12,
+      licenseExpiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  const customer = await prisma.user.upsert({
+    where: { email: "khachhang@gmail.com" },
+    update: {},
+    create: {
+      email: "khachhang@gmail.com",
+      name: "Khách Hàng (Học Viên Online)",
+      password: userPassword,
       role: "LEARNER",
       status: "ACTIVE",
+      monthlyReviewsUsed: 0,
       licenseExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days active license
     },
   });
 
-  console.log("Users seeded successfully:", { admin: admin.email, learner: learner.email });
+  console.log("Users seeded successfully:", {
+    admin: admin.email,
+    staff: staff.email,
+    customer: customer.email,
+  });
 
   // 2. Seed Categories
   const generalKnowledge = await prisma.category.create({

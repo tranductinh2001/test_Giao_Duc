@@ -1099,6 +1099,7 @@ model section_structure_rules {
 
 enum Role {
   ADMIN
+  TEACHER
   LEARNER
 }
 

@@ -41,6 +41,9 @@ export const authConfig = {
         if (userRole === "ADMIN") {
           return Response.redirect(new URL("/admin", nextUrl));
         }
+        if (userRole === "TEACHER") {
+          return Response.redirect(new URL("/lesson-plans/review", nextUrl));
+        }
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
 
@@ -64,6 +67,9 @@ export const authConfig = {
         token.role = user.role;
         token.status = user.status;
         token.licenseExpiresAt = user.licenseExpiresAt;
+        token.reviewQuotaTotal = user.reviewQuotaTotal;
+        token.reviewQuotaUsed = user.reviewQuotaUsed;
+        token.tokensUsed = user.tokensUsed;
       }
       return token;
     },
@@ -73,6 +79,9 @@ export const authConfig = {
         session.user.role = token.role as "ADMIN" | "TEACHER" | "LEARNER";
         session.user.status = token.status as "ACTIVE" | "LOCKED" | "INACTIVE";
         session.user.licenseExpiresAt = token.licenseExpiresAt as Date | string | null;
+        session.user.reviewQuotaTotal = typeof token.reviewQuotaTotal === 'number' ? token.reviewQuotaTotal : undefined;
+        session.user.reviewQuotaUsed = typeof token.reviewQuotaUsed === 'number' ? token.reviewQuotaUsed : undefined;
+        session.user.tokensUsed = typeof token.tokensUsed === 'number' ? token.tokensUsed : undefined;
       }
       return session;
     }

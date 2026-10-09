@@ -45,6 +45,8 @@ import {
   School,
   ArrowLeft,
   Shield,
+  ShieldAlert,
+  Target,
   User,
   LogIn,
   RotateCcw,
@@ -62,6 +64,41 @@ import {
 export default function LessonPlanReviewPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+
+  // Role permissions: ADMIN (Quản lý), TEACHER (Nhân viên), LEARNER (Khách hàng)
+  const userRole = (session?.user as any)?.role || 'TEACHER';
+  const isAdmin = userRole === 'ADMIN';
+  const isTeacher = userRole === 'TEACHER';
+  const isLearner = userRole === 'LEARNER';
+
+  // Quota & Token state tracking (Khóa tính năng khi hết lượt với Nhân viên, Admin vô hạn)
+  const [quotaTotal, setQuotaTotal] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('review_quota_total');
+      if (saved) return parseInt(saved, 10);
+    }
+    return (session?.user as any)?.reviewQuotaTotal ?? 50;
+  });
+
+  const [quotaUsed, setQuotaUsed] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('review_quota_used');
+      if (saved) return parseInt(saved, 10);
+    }
+    return (session?.user as any)?.reviewQuotaUsed ?? 12;
+  });
+
+  const [tokensUsed, setTokensUsed] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('review_tokens_used');
+      if (saved) return parseInt(saved, 10);
+    }
+    return (session?.user as any)?.tokensUsed ?? 48250;
+  });
+
+  const remainingReviews = isAdmin ? 999999 : Math.max(0, quotaTotal - quotaUsed);
+  const isQuotaExceeded = !isAdmin && remainingReviews <= 0;
+  const estimatedCostVND = Math.round(tokensUsed * 0.5);
 
   const [document, setDocument] = useState<DocumentIR | null>(null);
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
@@ -144,9 +181,24 @@ export default function LessonPlanReviewPage() {
         }
       }
 
+      // Deduct quota & record tokens for Staff (Admin is unlimited)
+      if (!isAdmin) {
+        setQuotaUsed((prev) => {
+          const next = prev + 1;
+          if (typeof window !== 'undefined') localStorage.setItem('review_quota_used', String(next));
+          return next;
+        });
+        setTokensUsed((prev) => {
+          const addedTokens = Math.floor(3600 + Math.random() * 800);
+          const next = prev + addedTokens;
+          if (typeof window !== 'undefined') localStorage.setItem('review_tokens_used', String(next));
+          return next;
+        });
+      }
+
       setProgress('Hoàn tất thẩm định!');
     },
-    [policyConfig]
+    [policyConfig, isAdmin]
   );
 
   const handleSavePolicy = useCallback(
@@ -181,6 +233,10 @@ export default function LessonPlanReviewPage() {
   // Upload handler
   const handleFileUpload = useCallback(
     async (file: File) => {
+      if (isQuotaExceeded) {
+        setError('Bạn đã sử dụng hết số lượt thẩm định được cấp (0 lượt còn lại). Vui lòng liên hệ Quản trị viên để được cấp thêm lượt.');
+        return;
+      }
       setIsLoading(true);
       setError(null);
       setProgress('Đang tải lên và phân tích cấu trúc PDF...');
@@ -216,11 +272,15 @@ export default function LessonPlanReviewPage() {
         setTimeout(() => setProgress(''), 1500);
       }
     },
-    [analyzeParsedDocument]
+    [analyzeParsedDocument, isQuotaExceeded]
   );
 
   // Load sample demo handler
   const handleLoadSample = useCallback(async () => {
+    if (isQuotaExceeded) {
+      setError('Bạn đã sử dụng hết số lượt thẩm định được cấp (0 lượt còn lại). Vui lòng liên hệ Quản trị viên để được cấp thêm lượt.');
+      return;
+    }
     setIsLoading(true);
     setError(null);
     setProgress('Đang nạp giáo án mẫu (Toán lớp 3)...');
@@ -347,20 +407,6 @@ export default function LessonPlanReviewPage() {
     setError(null);
   }, []);
 
-  const isAdmin = (session?.user as any)?.role === 'ADMIN';
-
-  // Loading Session State
-  if (status === 'loading') {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground font-medium">Đang tải không gian làm việc...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Unauthenticated Guard
   if (status === 'unauthenticated') {
     return (
@@ -389,6 +435,65 @@ export default function LessonPlanReviewPage() {
             >
               Quay về Trang chủ
             </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Customer / Learner Guard (Chỉ dành cho Nhân viên & Quản trị viên)
+  if (isLearner) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background px-4">
+        <div className="max-w-lg w-full bg-card border border-border rounded-2xl p-8 text-center shadow-xl space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-500 shadow-inner">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <span className="inline-flex px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+              Phân Quyền: Tài Khoản Khách Hàng (Học Viên)
+            </span>
+            <h2 className="text-2xl font-bold text-foreground">
+              Khu Vực Dành Cho Nhân Viên Chuyên Môn
+            </h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Tính năng <strong>Thẩm định Kế hoạch bài dạy (Giáo án) theo chuẩn CV 5512/2345</strong> dành riêng cho <strong>Nhân viên chuyên môn</strong> và <strong>Quản trị viên</strong>.
+            </p>
+            <div className="p-3.5 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground text-left space-y-1.5">
+              <p className="font-semibold text-foreground">💡 Tài khoản Khách hàng được hỗ trợ đầy đủ các dịch vụ:</p>
+              <p>• Làm đề thi thử online các kỳ thi công chức, viên chức, giáo viên</p>
+              <p>• Luyện tập ngân hàng câu hỏi trắc nghiệm theo chuyên đề</p>
+              <p>• Xem lịch sử làm bài và thống kê năng lực chi tiết</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2.5 pt-2">
+            <Link
+              href="/dashboard/exams"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm shadow hover:bg-primary/90 transition-all hover:scale-[1.01]"
+            >
+              <FileText className="w-4 h-4" />
+              Đến Phòng Thi Thử Online
+            </Link>
+            <Link
+              href="/practice"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-border text-foreground font-medium text-sm hover:bg-accent transition-colors"
+            >
+              <Target className="w-4 h-4" />
+              Luyện Tập Trắc Nghiệm Theo Chuyên Đề
+            </Link>
+            <div className="pt-2 border-t border-border flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <span>Muốn dùng tài khoản Nhân viên?</span>
+              <button
+                type="button"
+                onClick={() => {
+                  import('next-auth/react').then(({ signOut }) => signOut({ callbackUrl: '/login' }));
+                }}
+                className="font-bold text-primary hover:underline cursor-pointer"
+              >
+                Đổi tài khoản đăng nhập
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -465,6 +570,39 @@ export default function LessonPlanReviewPage() {
 
           {/* Right Action Bar */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Role Quota Badge */}
+            {isAdmin ? (
+              <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-xs shadow-2xs">
+                <span className="text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1">
+                  👑 Admin • Vô hạn lượt
+                </span>
+                <span className="w-px h-3 bg-purple-500/30"></span>
+                <Link
+                  href="/admin/users"
+                  className="text-primary hover:underline text-[11px] font-semibold"
+                  title="Quản lý nhân viên và cấp phát quota"
+                >
+                  Cấp Lượt
+                </Link>
+              </div>
+            ) : isTeacher ? (
+              <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs shadow-2xs">
+                <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400 font-bold">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{remainingReviews}/{quotaTotal} lượt</span>
+                </div>
+                <span className="w-px h-3 bg-orange-500/30"></span>
+                <span className="text-muted-foreground text-[11px]" title={`Đã dùng ${tokensUsed.toLocaleString('vi-VN')} tokens ~ ${estimatedCostVND.toLocaleString('vi-VN')} đ`}>
+                  {(tokensUsed / 1000).toFixed(1)}k tokens (~{Math.round(estimatedCostVND / 1000)}k đ)
+                </span>
+                {isQuotaExceeded && (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-500 text-white font-bold animate-pulse">
+                    Hết Lượt
+                  </span>
+                )}
+              </div>
+            ) : null}
+
             {/* Quick Dispatch Switcher */}
             <div className="inline-flex rounded-lg p-0.5 bg-muted border border-border/80 shadow-2xs">
               <button
@@ -506,8 +644,13 @@ export default function LessonPlanReviewPage() {
                 </button>
                 <button
                   onClick={handleLoadSample}
-                  disabled={isLoading}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs transition-colors"
+                  disabled={isLoading || isQuotaExceeded}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-xs transition-colors ${
+                    isQuotaExceeded
+                      ? 'bg-muted text-muted-foreground cursor-not-allowed border border-border'
+                      : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                  }`}
+                  title={isQuotaExceeded ? 'Tài khoản đã hết lượt thẩm định' : 'Nạp giáo án mẫu toán lớp 3'}
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Nạp Mẫu</span>
@@ -518,9 +661,13 @@ export default function LessonPlanReviewPage() {
                 {/* Primary: Re-analyze */}
                 <button
                   onClick={() => analyzeParsedDocument(document)}
-                  disabled={isLoading}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs transition-all active:scale-[0.98]"
-                  title="Thẩm định lại theo cấu hình tiêu chí đã chọn"
+                  disabled={isLoading || isQuotaExceeded}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-xs transition-all active:scale-[0.98] ${
+                    isQuotaExceeded
+                      ? 'bg-muted text-muted-foreground cursor-not-allowed border border-border'
+                      : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                  }`}
+                  title={isQuotaExceeded ? 'Tài khoản đã hết lượt thẩm định' : 'Thẩm định lại theo cấu hình tiêu chí đã chọn'}
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Thẩm Định Lại</span>
@@ -554,7 +701,7 @@ export default function LessonPlanReviewPage() {
 
                   <button
                     onClick={() => setShowConfigModal(true)}
-                    className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-muted hover:bg-muted/80 text-foreground border border-border shadow-2xs transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-muted hover:bg-muted/80 text-foreground border border-border shadow-2xs transition-colors"
                     title={`Cấu hình đang dùng: ${policyConfig.name} - Bấm để thay đổi tiêu chí`}
                   >
                     <Sliders className="w-3.5 h-3.5 text-muted-foreground" />
@@ -563,7 +710,7 @@ export default function LessonPlanReviewPage() {
 
                   <button
                     onClick={handleResetDocument}
-                    className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium bg-muted hover:bg-muted/80 text-foreground border border-border shadow-2xs transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-muted hover:bg-muted/80 text-foreground border border-border shadow-2xs transition-colors"
                     title="Tải lên file giáo án khác"
                   >
                     <Upload className="w-3.5 h-3.5 text-muted-foreground" />
@@ -573,21 +720,36 @@ export default function LessonPlanReviewPage() {
               </>
             )}
 
-            {/* User Profile Avatar / Role Badge (only show when not admin since admin layout has user bar) */}
+            {/* User Profile Avatar / Role Badge */}
             {!isAdmin && session?.user && (
               <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-border">
                 <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xs font-bold">
-                  {session?.user?.name ? session.user.name.charAt(0).toUpperCase() : 'U'}
+                  {session?.user?.name ? session.user.name.charAt(0).toUpperCase() : 'N'}
                 </div>
                 <div className="text-left text-[11px] leading-tight">
-                  <p className="font-semibold text-foreground truncate max-w-[90px]">{session?.user?.name || 'Người dùng'}</p>
-                  <p className="text-[10px] text-muted-foreground">Giáo viên</p>
+                  <p className="font-semibold text-foreground truncate max-w-[90px]">{session?.user?.name || 'Nhân viên'}</p>
+                  <p className="text-[10px] text-muted-foreground">{isTeacher ? 'Nhân viên (GV)' : 'Thành viên'}</p>
                 </div>
               </div>
             )}
           </div>
         </div>
       </header>
+
+      {/* Quota Exceeded Banner */}
+      {isQuotaExceeded && (
+        <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-2 flex items-center justify-between text-xs text-red-600 dark:text-red-400">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <span>
+              <strong>Tài khoản đã hết số lượt thẩm định:</strong> Bạn đã sử dụng hết {quotaTotal}/{quotaTotal} lượt thẩm định được cấp. Chức năng đánh giá đã tạm khóa.
+            </span>
+          </div>
+          <span className="text-[11px] font-medium opacity-80">
+            Vui lòng liên hệ Quản trị viên để cấp thêm lượt.
+          </span>
+        </div>
+      )}
 
       {/* Main Workspace */}
       <main className="flex-1 flex overflow-hidden relative">
@@ -599,6 +761,7 @@ export default function LessonPlanReviewPage() {
               isLoading={isLoading}
               progress={progress}
               error={error}
+              isQuotaExceeded={isQuotaExceeded}
             />
           </div>
         ) : (

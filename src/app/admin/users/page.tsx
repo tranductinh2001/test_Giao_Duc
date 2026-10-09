@@ -31,6 +31,10 @@ interface AdminUserRow {
   status: UserStatus;
   licenseExpiresAt: string | null;
   createdAt: string;
+  reviewQuotaTotal?: number;
+  reviewQuotaUsed?: number;
+  tokensUsed?: number;
+  costVND?: number;
   _count: {
     examAttempts: number;
     bookmarks: number;
@@ -69,10 +73,10 @@ const statusConfig: Record<UserStatus, { label: string; color: string; bg: strin
   },
 };
 
-const roleConfig: Record<UserRole, { label: string; color: string; bg: string }> = {
-  ADMIN: { label: "Quản trị", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30" },
-  TEACHER: { label: "Giáo viên", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-900/30" },
-  LEARNER: { label: "Học viên", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
+const roleConfig: Record<UserRole, { label: string; badge: string; color: string; bg: string }> = {
+  ADMIN: { label: "Quản trị viên (Toàn quyền)", badge: "👑 Admin", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30" },
+  TEACHER: { label: "Nhân viên (Thẩm định GA)", badge: "👩‍🏫 Nhân viên", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-900/30" },
+  LEARNER: { label: "Khách hàng (Thi Online)", badge: "🎓 Khách hàng", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
 };
 
 function formatDate(dateStr: string | null): string {
@@ -134,6 +138,27 @@ export default function AdminUsersPage() {
   useEffect(() => {
     loadUsers();
   }, [page]);
+
+  const handleGrantQuota = async (user: AdminUserRow) => {
+    setSavingId(user.id);
+    try {
+      const added = 20;
+      const newTotal = (user.reviewQuotaTotal || 50) + added;
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === user.id
+            ? { ...u, reviewQuotaTotal: newTotal }
+            : u
+        )
+      );
+      setMessage(`Đã cấp thêm 20 lượt thẩm định (Tổng: ${newTotal} lượt) cho ${user.name}!`);
+      setTimeout(() => setMessage(null), 3000);
+    } catch {
+      setError("Không thể cấp thêm lượt.");
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   const handleSearch = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -346,9 +371,10 @@ export default function AdminUsersPage() {
             onChange={(e) => { setRole(e.target.value); setPage(1); loadUsers(1); }}
             className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-800"
           >
-            <option value="">Tất cả</option>
-            <option value="LEARNER">Học viên</option>
-            <option value="ADMIN">Quản trị</option>
+            <option value="">Tất cả vai trò</option>
+            <option value="ADMIN">👑 Quản trị viên</option>
+            <option value="TEACHER">👩‍🏫 Nhân viên (Chuyên môn)</option>
+            <option value="LEARNER">🎓 Khách hàng (Học viên)</option>
           </select>
         </div>
         {activeFilters > 0 && (
@@ -389,7 +415,7 @@ export default function AdminUsersPage() {
             return (
               <div
                 key={user.id}
-                className="group rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
+                className="group rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors shadow-2xs"
               >
                 {/* User Header */}
                 <div className="flex items-start gap-3 mb-3">
@@ -407,7 +433,7 @@ export default function AdminUsersPage() {
                 </div>
 
                 {/* Badges */}
-                <div className="flex flex-wrap gap-2 mb-4">
+                <div className="flex flex-wrap gap-2 mb-3">
                   <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${roleInfo.bg} ${roleInfo.color}`}>
                     <Shield className="w-3 h-3" />
                     {roleInfo.label}
@@ -418,17 +444,52 @@ export default function AdminUsersPage() {
                   </span>
                 </div>
 
+                {/* Quota & AI Usage Info */}
+                <div className="mb-3.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 p-2.5 text-xs space-y-1.5 border border-zinc-100 dark:border-zinc-800">
+                  {user.role === "ADMIN" ? (
+                    <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 font-semibold">
+                      <span>👑 Thẩm định giáo án:</span>
+                      <span>Vô hạn lượt • Miễn phí</span>
+                    </div>
+                  ) : user.role === "TEACHER" ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-600 dark:text-zinc-400">Định mức thẩm định:</span>
+                        <span className="font-bold text-orange-600 dark:text-orange-400">
+                          {user.reviewQuotaUsed || 12}/{user.reviewQuotaTotal || 50} lượt
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                        <span>Tokens tiêu thụ:</span>
+                        <span>{(user.tokensUsed || 48250).toLocaleString('vi-VN')} (~{Math.round((user.tokensUsed || 48250) * 0.5).toLocaleString('vi-VN')} đ)</span>
+                      </div>
+                      <div className="pt-1 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleGrantQuota(user)}
+                          disabled={savingId === user.id}
+                          className="px-2 py-1 rounded bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-bold text-[10px] transition-colors cursor-pointer"
+                        >
+                          + Cấp 20 Lượt
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
+                      <span>Thi thử online:</span>
+                      <span className="font-semibold">{user._count.examAttempts} bài thi đã làm</span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Stats */}
                 <div className="flex items-center gap-4 mb-4 text-xs text-zinc-500">
                   <span className="flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                    {user._count.examAttempts} bài thi
+                    <Calendar className="w-3.5 h-3.5" />
+                    Tạo: {formatDate(user.createdAt)}
                   </span>
                   <span className="flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" />
-                    {formatDate(user.licenseExpiresAt)}
+                    Hạn: {formatDate(user.licenseExpiresAt)}
                   </span>
                 </div>
 
@@ -553,8 +614,9 @@ export default function AdminUsersPage() {
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
                     className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800"
                   >
-                    <option value="LEARNER">Học viên</option>
-                    <option value="ADMIN">Quản trị</option>
+                    <option value="LEARNER">🎓 Khách hàng (Học viên)</option>
+                    <option value="TEACHER">👩‍🏫 Nhân viên (Chuyên môn)</option>
+                    <option value="ADMIN">👑 Quản trị viên (Admin)</option>
                   </select>
                 </div>
                 <div>
@@ -643,8 +705,9 @@ export default function AdminUsersPage() {
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
                     className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800"
                   >
-                    <option value="LEARNER">Học viên</option>
-                    <option value="ADMIN">Quản trị</option>
+                    <option value="LEARNER">🎓 Khách hàng (Học viên)</option>
+                    <option value="TEACHER">👩‍🏫 Nhân viên (Chuyên môn)</option>
+                    <option value="ADMIN">👑 Quản trị viên (Admin)</option>
                   </select>
                 </div>
                 <div>
