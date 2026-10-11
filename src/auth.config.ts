@@ -1,6 +1,8 @@
 import type { NextAuthConfig } from "next-auth";
 
 export const authConfig = {
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "fallback-auth-secret-key-32charsmin",
+  trustHost: true,
   pages: {
     signIn: "/login",
   },
@@ -63,28 +65,51 @@ export const authConfig = {
     },
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.role = user.role;
-        token.status = user.status;
-        token.licenseExpiresAt = user.licenseExpiresAt;
-        token.reviewQuotaTotal = user.reviewQuotaTotal;
-        token.reviewQuotaUsed = user.reviewQuotaUsed;
-        token.tokensUsed = user.tokensUsed;
+        token.id = user.id || token.id || token.sub;
+        token.email = user.email || token.email;
+        token.name = user.name || token.name;
+        token.role = user.role || token.role || "LEARNER";
+        token.status = user.status || token.status || "ACTIVE";
+        token.licenseExpiresAt = user.licenseExpiresAt ?? token.licenseExpiresAt ?? null;
+        token.reviewQuotaTotal =
+          typeof user.reviewQuotaTotal === "number"
+            ? user.reviewQuotaTotal
+            : (token.role === "ADMIN" ? 999999 : (token.role === "TEACHER" ? 50 : 0));
+        token.reviewQuotaUsed =
+          typeof user.reviewQuotaUsed === "number"
+            ? user.reviewQuotaUsed
+            : (token.reviewQuotaUsed ?? 0);
+        token.tokensUsed =
+          typeof user.tokensUsed === "number"
+            ? user.tokensUsed
+            : (token.tokensUsed ?? 0);
       }
+
+      // Ensure fallbacks for existing tokens
+      if (!token.role) token.role = "LEARNER";
+      if (!token.status) token.status = "ACTIVE";
+
       return token;
     },
     async session({ session, token }) {
       if (session.user && token) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as "ADMIN" | "TEACHER" | "LEARNER";
-        session.user.status = token.status as "ACTIVE" | "LOCKED" | "INACTIVE";
-        session.user.licenseExpiresAt = token.licenseExpiresAt as Date | string | null;
-        session.user.reviewQuotaTotal = typeof token.reviewQuotaTotal === 'number' ? token.reviewQuotaTotal : undefined;
-        session.user.reviewQuotaUsed = typeof token.reviewQuotaUsed === 'number' ? token.reviewQuotaUsed : undefined;
-        session.user.tokensUsed = typeof token.tokensUsed === 'number' ? token.tokensUsed : undefined;
+        session.user.id = (token.id as string) || (token.sub as string);
+        session.user.email = (token.email as string) || session.user.email;
+        session.user.name = (token.name as string) || session.user.name;
+        session.user.role = (token.role as "ADMIN" | "TEACHER" | "LEARNER") || "LEARNER";
+        session.user.status = (token.status as "ACTIVE" | "LOCKED" | "INACTIVE") || "ACTIVE";
+        session.user.licenseExpiresAt = (token.licenseExpiresAt as Date | string | null) || null;
+        session.user.reviewQuotaTotal =
+          typeof token.reviewQuotaTotal === "number"
+            ? token.reviewQuotaTotal
+            : (session.user.role === "ADMIN" ? 999999 : (session.user.role === "TEACHER" ? 50 : 0));
+        session.user.reviewQuotaUsed =
+          typeof token.reviewQuotaUsed === "number" ? token.reviewQuotaUsed : 0;
+        session.user.tokensUsed =
+          typeof token.tokensUsed === "number" ? token.tokensUsed : 0;
       }
       return session;
     }
   },
-  providers: [], // Actual providers will be defined in auth.ts
+  providers: [], // Actual providers defined in auth.ts
 } satisfies NextAuthConfig;
