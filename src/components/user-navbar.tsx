@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import {
   GraduationCap,
   FileText,
@@ -41,6 +42,19 @@ export default function UserNavbar({ userName, userRole }: UserNavbarProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      setShowUserMenu(false);
+      setShowMobileMenu(false);
+      await signOut({ callbackUrl: "/login", redirect: true });
+    } catch (err) {
+      console.error("SignOut error:", err);
+      window.location.href = "/login";
+    }
+  };
   const [scrolled, setScrolled] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -327,7 +341,7 @@ export default function UserNavbar({ userName, userRole }: UserNavbarProps) {
                           <span>Cài đặt</span>
                         </Link>
 
-                        {isAdmin && (
+                        {isStaffOrAdmin && (
                           <Link
                             href="/admin"
                             onClick={() => setShowUserMenu(false)}
@@ -342,10 +356,13 @@ export default function UserNavbar({ userName, userRole }: UserNavbarProps) {
                       {/* Logout */}
                       <div className="border-t border-[var(--border)] pt-1 pb-1 mt-1">
                         <button
-                          className="flex items-center gap-3 px-4 py-2.5 mx-2 text-sm rounded-lg text-[var(--danger)] hover:bg-[var(--danger-soft)] transition-colors w-full"
+                          type="button"
+                          onClick={handleLogout}
+                          disabled={loggingOut}
+                          className="flex items-center gap-3 px-4 py-2.5 mx-2 text-sm rounded-lg text-[var(--danger)] hover:bg-[var(--danger-soft)] transition-colors w-full disabled:opacity-50 text-left"
                         >
                           <LogOut className="h-4 w-4" />
-                          <span>Đăng xuất</span>
+                          <span>{loggingOut ? "Đang đăng xuất..." : "Đăng xuất"}</span>
                         </button>
                       </div>
                     </div>
@@ -519,10 +536,13 @@ export default function UserNavbar({ userName, userRole }: UserNavbarProps) {
                   <span>Hồ sơ</span>
                 </Link>
                 <button
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-[var(--danger)] bg-[var(--danger-soft)] hover:bg-[var(--danger-soft)]/70 transition-colors"
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-[var(--danger)] bg-[var(--danger-soft)] hover:bg-[var(--danger-soft)]/70 transition-colors disabled:opacity-50"
                 >
                   <LogOut className="h-4 w-4" />
-                  <span>Đăng xuất</span>
+                  <span>{loggingOut ? "Đang thoát..." : "Đăng xuất"}</span>
                 </button>
               </div>
             </div>

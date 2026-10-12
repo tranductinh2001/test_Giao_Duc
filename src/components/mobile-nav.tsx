@@ -1,5 +1,7 @@
 "use client";
 
+import { signOut } from "next-auth/react";
+
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -103,16 +105,21 @@ export default function MobileNav({ userName, userRole }: MobileNavProps) {
 
           {/* Logout */}
           <div className="mt-6 pt-6 border-t border-border">
-            <form action="/api/auth/signout" method="POST">
-              <button
-                type="submit"
-                className="w-full rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive transition-colors duration-200 hover:bg-destructive/20 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive touch-action-manipulation"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <LogOut className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-                Đăng Xuất
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await signOut({ callbackUrl: "/login", redirect: true });
+                } catch {
+                  window.location.href = "/login";
+                }
+              }}
+              className="w-full rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive transition-colors duration-200 hover:bg-destructive/20 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive touch-action-manipulation"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              <LogOut className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+              Đăng Xuất
+            </button>
           </div>
         </div>
       </div>

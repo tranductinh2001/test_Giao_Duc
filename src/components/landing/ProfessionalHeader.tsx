@@ -268,7 +268,7 @@ export function ProfessionalHeader() {
                     </button>
                   </Link>
                   <button
-                    onClick={() => signOut({ callbackUrl: '/' })}
+                    onClick={() => signOut({ callbackUrl: '/login' })}
                     className="h-10 px-5 text-sm font-semibold rounded-xl text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:brightness-110 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] bg-primary flex items-center gap-2"
                   >
                     <LogOut className="w-4 h-4" />
@@ -378,7 +378,7 @@ export function ProfessionalHeader() {
                       </button>
                     </Link>
                     <button
-                      onClick={() => signOut({ callbackUrl: '/' })}
+                      onClick={() => signOut({ callbackUrl: '/login' })}
                       className="w-full h-12 rounded-xl text-primary-foreground font-semibold transition-all duration-300 hover:-translate-y-0.5 shadow-lg shadow-primary/20 text-sm flex items-center justify-center gap-2 bg-primary"
                     >
                       <LogOut className="w-4 h-4" />

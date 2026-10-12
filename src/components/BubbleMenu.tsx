@@ -292,7 +292,7 @@ export default function BubbleMenu({ userName }: BubbleMenuProps) {
           <button
             onClick={() => {
               setIsMenuOpen(false);
-              signOut({ callbackUrl: "/" });
+              signOut({ callbackUrl: "/login" });
             }}
             className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl font-medium text-sm bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400"
           >

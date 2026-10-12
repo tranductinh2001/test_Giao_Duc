@@ -223,7 +223,7 @@ export default function MobileMenu({ isOpen, onClose, userName, userRole }: Mobi
           )}
 
           <button
-            onClick={() => signOut({ callbackUrl: "/" })}
+            onClick={() => signOut({ callbackUrl: "/login" })}
             className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors mt-2"
           >
             <LogOut className="w-5 h-5" strokeWidth={2} />

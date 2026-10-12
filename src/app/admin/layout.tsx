@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { redirect } from "next/navigation";
 import LogoutButton from "@/components/logout-button";
 import ToastProvider from "@/components/toast-provider";
@@ -438,10 +438,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {session.user.name?.charAt(0).toUpperCase() || "A"}
               </div>
               <button
-                onClick={() => {
-                  const confirm = window.confirm("Đăng xuất?");
-                  if (confirm) {
-                    window.location.href = "/api/auth/signout";
+                type="button"
+                onClick={async () => {
+                  try {
+                    await signOut({ callbackUrl: "/login", redirect: true });
+                  } catch {
+                    window.location.href = "/login";
                   }
                 }}
                 className="rounded-[var(--radius-sm)] p-2 text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
