@@ -40,19 +40,43 @@ export const authConfig = {
 
       // 1. If already logged in and trying to access auth pages -> Redirect to appropriate panel
       if (isAuthRoute && isLoggedIn) {
-        if (userRole === "ADMIN") {
+        if (userRole === "ADMIN" || userRole === "TEACHER") {
           return Response.redirect(new URL("/admin", nextUrl));
-        }
-        if (userRole === "TEACHER") {
-          return Response.redirect(new URL("/lesson-plans/review", nextUrl));
         }
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
 
-      // 2. Protect admin routes (only ADMIN role allowed)
+      // 2. Protect Admin and Staff routes
       if (isAdminRoute || isApiAdminRoute) {
         if (!isLoggedIn) return false; // Redirect to login
-        if (userRole !== "ADMIN") return false; // Redirect to login
+
+        // LEARNER (Customer) is strictly forbidden from any admin area
+        if (userRole === "LEARNER" || !userRole) {
+          return false;
+        }
+
+        // TEACHER (Staff) is allowed in admin areas (users, evaluate, questions, exams, etc.)
+        // but strictly forbidden from core system settings and license generation
+        const isCoreSettingsRoute =
+          nextUrl.pathname.startsWith("/admin/settings") ||
+          nextUrl.pathname.startsWith("/admin/licenses") ||
+          nextUrl.pathname.startsWith("/api/admin/settings") ||
+          nextUrl.pathname.startsWith("/api/admin/licenses");
+
+        if (userRole === "TEACHER" && isCoreSettingsRoute) {
+          if (isApiAdminRoute) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: "FORBIDDEN",
+                message: "Nhân viên không có quyền truy cập cấu hình hệ thống hoặc quản lý bản quyền License.",
+              }),
+              { status: 403, headers: { "Content-Type": "application/json" } }
+            );
+          }
+          return Response.redirect(new URL("/admin", nextUrl));
+        }
+
         return true;
       }
 
@@ -111,5 +135,5 @@ export const authConfig = {
       return session;
     }
   },
-  providers: [], // Actual providers defined in auth.ts
+  providers: [], // Providers defined in auth.ts
 } satisfies NextAuthConfig;

@@ -10,7 +10,7 @@ interface RouteContext {
 export async function GET(req: NextRequest, context: RouteContext) {
   try {
     const session = await auth();
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "TEACHER")) {
       return NextResponse.json(
         { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
         { status: 403 }
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 export async function PATCH(req: NextRequest, context: RouteContext) {
   try {
     const session = await auth();
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "TEACHER")) {
       return NextResponse.json(
         { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
         { status: 403 }
@@ -78,11 +78,28 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       );
     }
 
-    if (userId === session.user.id && role && role !== "ADMIN") {
+    if (userId === session.user.id && role && role !== session.user.role) {
       return NextResponse.json(
         { success: false, error: "FORBIDDEN", message: "Không thể tự thay đổi vai trò của chính mình." },
         { status: 400 }
       );
+    }
+
+    // Role restrictions for TEACHER (Staff):
+    if (session.user.role === "TEACHER") {
+      const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+      if (targetUser && (targetUser.role === "ADMIN" || (targetUser.role === "TEACHER" && targetUser.id !== session.user.id))) {
+        return NextResponse.json(
+          { success: false, error: "FORBIDDEN", message: "Nhân viên không có quyền can thiệp tài khoản Quản trị viên hoặc Nhân viên khác." },
+          { status: 403 }
+        );
+      }
+      if (role && role !== "LEARNER") {
+        return NextResponse.json(
+          { success: false, error: "FORBIDDEN", message: "Nhân viên không có quyền nâng cấp vai trò người dùng." },
+          { status: 403 }
+        );
+      }
     }
 
     const updateData: any = {};
@@ -155,7 +172,7 @@ export const PUT = PATCH;
 export async function DELETE(req: NextRequest, context: RouteContext) {
   try {
     const session = await auth();
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "TEACHER")) {
       return NextResponse.json(
         { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
         { status: 403 }
@@ -176,6 +193,17 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
         { success: false, error: "FORBIDDEN", message: "Không thể tự xóa tài khoản của chính mình." },
         { status: 400 }
       );
+    }
+
+    // Role restrictions for TEACHER (Staff):
+    if (session.user.role === "TEACHER") {
+      const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+      if (targetUser && targetUser.role !== "LEARNER") {
+        return NextResponse.json(
+          { success: false, error: "FORBIDDEN", message: "Nhân viên chỉ có quyền xóa tài khoản Học viên / Khách hàng (LEARNER)." },
+          { status: 403 }
+        );
+      }
     }
 
     try {

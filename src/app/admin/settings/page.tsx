@@ -1,10 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Save, Key, CheckCircle, AlertCircle, FileText, TestTube, Eye, EyeOff, X, Settings as SettingsIcon, Info } from "lucide-react";
 import Button from "@/components/ui/button";
 
 export default function SettingsPage() {
+  const { data: session, status: authStatus } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (authStatus !== "loading" && session?.user?.role !== "ADMIN") {
+      router.replace("/admin");
+    }
+  }, [session, authStatus, router]);
   const [beeApiKey, setBeeApiKey] = useState("");
   const [currentKey, setCurrentKey] = useState("");
   const [showKey, setShowKey] = useState(false);

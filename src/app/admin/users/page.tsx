@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Button from "@/components/ui/button";
 import {
@@ -85,6 +86,8 @@ function formatDate(dateStr: string | null): string {
 }
 
 export default function AdminUsersPage() {
+  const { data: session } = useSession();
+  const isTeacher = session?.user?.role === "TEACHER";
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [meta, setMeta] = useState<UsersResponse["meta"]>({ total: 0, page: 1, limit: 10, totalPages: 1 });
   const [loading, setLoading] = useState(true);
@@ -252,6 +255,10 @@ export default function AdminUsersPage() {
   };
 
   const openEditModal = (user: AdminUserRow) => {
+    if (isTeacher && (user.role === "ADMIN" || (user.role === "TEACHER" && user.id !== session?.user?.id))) {
+      setError("Nhân viên chỉ có quyền quản lý tài khoản Học viên / Khách hàng.");
+      return;
+    }
     setEditingUser(user);
     setFormData({
       name: user.name,
@@ -499,6 +506,8 @@ export default function AdminUsersPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => openEditModal(user)}
+                    disabled={isTeacher && (user.role === "ADMIN" || (user.role === "TEACHER" && user.id !== session?.user?.id))}
+                    title={isTeacher && (user.role === "ADMIN" || (user.role === "TEACHER" && user.id !== session?.user?.id)) ? "Chỉ Quản trị viên mới được sửa tài khoản này" : undefined}
                     className="flex-1 min-w-[80px]"
                   >
                     <Pencil className="w-4 h-4 mr-1" />
@@ -509,7 +518,8 @@ export default function AdminUsersPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleStatusChange(user.id, canLock ? "LOCKED" : "ACTIVE")}
-                    disabled={savingId === user.id}
+                    disabled={savingId === user.id || (isTeacher && (user.role === "ADMIN" || user.role === "TEACHER"))}
+                    title={isTeacher && (user.role === "ADMIN" || user.role === "TEACHER") ? "Chỉ Quản trị viên mới được khóa tài khoản này" : undefined}
                     className={`min-w-[44px] flex-1 ${canLock ? "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20" : "text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"}`}
                   >
                     {canLock ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
@@ -518,7 +528,8 @@ export default function AdminUsersPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleDeleteUser(user.id)}
-                    disabled={savingId === user.id}
+                    disabled={savingId === user.id || (isTeacher && user.role !== "LEARNER")}
+                    title={isTeacher && user.role !== "LEARNER" ? "Nhân viên chỉ có quyền xóa tài khoản Học viên" : undefined}
                     className="min-w-[44px] flex-1 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -610,7 +621,8 @@ export default function AdminUsersPage() {
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Vai trò</label>
                   <select
-                    value={formData.role}
+                    value={isTeacher ? "LEARNER" : formData.role}
+                    disabled={isTeacher}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
                     className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800"
                   >
@@ -701,7 +713,8 @@ export default function AdminUsersPage() {
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Vai trò</label>
                   <select
-                    value={formData.role}
+                    value={isTeacher ? "LEARNER" : formData.role}
+                    disabled={isTeacher}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
                     className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800"
                   >

@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getErrorMessage } from "@/lib/api";
 import bcrypt from "bcrypt";
-
-const PAGE_SIZE_FALLBACK = 10;
+import { getErrorMessage } from "@/lib/api";
 
 export async function GET(req: Request) {
   try {
     const session = await auth();
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "TEACHER")) {
       return NextResponse.json(
         { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
         { status: 403 }
@@ -17,36 +15,32 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const search = searchParams.get("search")?.trim() || "";
+    const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "";
     const role = searchParams.get("role") || "";
     const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1);
-    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || String(PAGE_SIZE_FALLBACK), 10), 1), 50);
+    const limit = Math.max(parseInt(searchParams.get("limit") || "10", 10), 1);
 
-    const where = {
-      ...(search
-        ? {
-            OR: [
-              { name: { contains: search, mode: "insensitive" as const } },
-              { email: { contains: search, mode: "insensitive" as const } },
-            ],
-          }
-        : {}),
-      ...(status ? { status: status as "ACTIVE" | "LOCKED" | "INACTIVE" } : {}),
-      ...(role ? { role: role as "ADMIN" | "TEACHER" | "LEARNER" } : {}),
-    };
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
+    if (status) where.status = status;
+    if (role) where.role = role;
 
-    let total = 0;
     let users: any[] = [];
+    let total = 0;
 
     try {
-      const [countResult, usersResult] = await Promise.all([
-        prisma.user.count({ where }),
+      const [rawUsers, count] = await Promise.all([
         prisma.user.findMany({
           where,
-          orderBy: { createdAt: "desc" },
           skip: (page - 1) * limit,
           take: limit,
+          orderBy: { createdAt: "desc" },
           select: {
             id: true,
             name: true,
@@ -66,27 +60,28 @@ export async function GET(req: Request) {
             },
           },
         }),
+        prisma.user.count({ where }),
       ]);
-      total = countResult;
-      users = usersResult.map((u) => {
-        const isAdm = u.role === "ADMIN";
-        const isTch = u.role === "TEACHER";
-        const quotaTotal = isAdm ? 999999 : (isTch ? 50 : 0);
-        const quotaUsed = isAdm ? 0 : (isTch ? (u.monthlyReviewsUsed || 12) : 0);
-        const tokensUsed = isAdm ? 0 : (isTch ? 48250 : 0);
-        const costVND = Math.round(tokensUsed * 0.5);
+
+      users = rawUsers.map((u) => {
+        const isStaff = u.role === "TEACHER";
+        const isAdmin = u.role === "ADMIN";
+        const quotaTotal = isAdmin ? 999999 : isStaff ? 50 : 0;
+        const quotaUsed = isAdmin ? 0 : isStaff ? u.monthlyReviewsUsed || 12 : 0;
+        const tokens = isAdmin ? 0 : isStaff ? 48250 : 0;
 
         return {
           ...u,
           reviewQuotaTotal: quotaTotal,
           reviewQuotaUsed: quotaUsed,
-          tokensUsed,
-          costVND,
+          tokensUsed: tokens,
+          costVND: Math.round(tokens * 0.5),
         };
       });
+
+      total = count;
     } catch (dbError) {
       console.warn("[Admin Users API] Database error, providing structured 3-role fallback data:", dbError);
-      // Fallback 3 default accounts for demo / offline
       const mockUsers = [
         {
           id: "admin-default-id",
@@ -172,7 +167,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await auth();
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "TEACHER")) {
       return NextResponse.json(
         { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
         { status: 403 }
@@ -186,6 +181,14 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { success: false, error: "VALIDATION_ERROR", message: "Ten, email va mat khau la bat buoc." },
         { status: 400 }
+      );
+    }
+
+    // Role check for TEACHER: can only create LEARNER
+    if (session.user.role === "TEACHER" && role && role !== "LEARNER") {
+      return NextResponse.json(
+        { success: false, error: "FORBIDDEN", message: "Nhân viên chỉ có quyền tạo tài khoản Học viên (LEARNER)." },
+        { status: 403 }
       );
     }
 
@@ -235,7 +238,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const session = await auth();
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "TEACHER")) {
       return NextResponse.json(
         { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
         { status: 403 }
@@ -243,7 +246,6 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    // Support both userId and id from payload
     const userId = body.userId || body.id;
     const { name, email, password, role, status, licenseExpiresAt } = body;
 
@@ -261,11 +263,28 @@ export async function PATCH(req: Request) {
       );
     }
 
-    if (userId === session.user.id && role && role !== "ADMIN") {
+    if (userId === session.user.id && role && role !== session.user.role) {
       return NextResponse.json(
         { success: false, error: "FORBIDDEN", message: "Không thể tự thay đổi vai trò của chính mình." },
         { status: 400 }
       );
+    }
+
+    // Role restrictions for TEACHER (Staff):
+    if (session.user.role === "TEACHER") {
+      const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+      if (targetUser && (targetUser.role === "ADMIN" || (targetUser.role === "TEACHER" && targetUser.id !== session.user.id))) {
+        return NextResponse.json(
+          { success: false, error: "FORBIDDEN", message: "Nhân viên không có quyền can thiệp tài khoản Quản trị viên hoặc Nhân viên khác." },
+          { status: 403 }
+        );
+      }
+      if (role && role !== "LEARNER") {
+        return NextResponse.json(
+          { success: false, error: "FORBIDDEN", message: "Nhân viên không có quyền nâng cấp vai trò người dùng." },
+          { status: 403 }
+        );
+      }
     }
 
     const updateData: any = {};
@@ -297,7 +316,6 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ success: true, data: updated });
     } catch (dbErr: any) {
       if (dbErr?.code === "P2025") {
-        // Record not found in DB - if default mock account, seed it
         if (userId === "admin-default-id" || userId === "staff-default-id" || userId === "customer-default-id") {
           const defaultPassword = await bcrypt.hash("admin12345", 10);
           const created = await prisma.user.create({
@@ -339,7 +357,7 @@ export const PUT = PATCH;
 export async function DELETE(req: Request) {
   try {
     const session = await auth();
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "TEACHER")) {
       return NextResponse.json(
         { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
         { status: 403 }
@@ -368,6 +386,17 @@ export async function DELETE(req: Request) {
         { success: false, error: "FORBIDDEN", message: "Không thể tự xóa tài khoản của chính mình." },
         { status: 400 }
       );
+    }
+
+    // Role restrictions for TEACHER (Staff):
+    if (session.user.role === "TEACHER") {
+      const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+      if (targetUser && targetUser.role !== "LEARNER") {
+        return NextResponse.json(
+          { success: false, error: "FORBIDDEN", message: "Nhân viên chỉ có quyền xóa tài khoản Học viên / Khách hàng (LEARNER)." },
+          { status: 403 }
+        );
+      }
     }
 
     try {

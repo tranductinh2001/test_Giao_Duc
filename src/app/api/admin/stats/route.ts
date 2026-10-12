@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
+    const session = await auth();
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "TEACHER")) {
+      return NextResponse.json(
+        { success: false, error: "FORBIDDEN", message: "Bạn không có quyền truy cập thống kê quản trị." },
+        { status: 403 }
+      );
+    }
+
     const [totalQuestions, totalExams, totalCategories, totalUsers] = await Promise.all([
       prisma.question.count(),
       prisma.exam.count(),

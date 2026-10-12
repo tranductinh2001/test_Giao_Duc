@@ -9,8 +9,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { prisma } from "@/lib/prisma";
 
+import { auth } from "@/auth";
+
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized: Vui lòng đăng nhập để thực hiện thẩm định giáo án." },
+        { status: 401 }
+      );
+    }
     const body = await request.json();
     const { lessonPlanId, sessionId: providedSessionId } = body;
 

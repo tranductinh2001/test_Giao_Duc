@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Button from "@/components/ui/button";
 import {
@@ -36,6 +38,14 @@ const statusConfig = {
 };
 
 export default function AdminLicensesPage() {
+  const { data: session, status: authStatus } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (authStatus !== "loading" && session?.user?.role !== "ADMIN") {
+      router.replace("/admin");
+    }
+  }, [session, authStatus, router]);
   const [licenses, setLicenses] = useState<LicenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);

@@ -75,6 +75,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const isMenuExpanded = (menuName: string) => expandedMenus.includes(menuName);
 
+  const isTeacher = session?.user?.role === "TEACHER";
+  const displayedNavigation = navigation.filter((item) => {
+    if (isTeacher) {
+      // Staff/Teacher cannot see Settings or Licenses
+      if (item.href === "/admin/settings" || item.href === "/admin/licenses") {
+        return false;
+      }
+    }
+    return true;
+  });
+
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
     return pathname.startsWith(href);
@@ -107,7 +118,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     redirect("/login?callbackUrl=%2Fadmin");
   }
 
-  if (session.user.role !== "ADMIN") {
+  if (session.user.role !== "ADMIN" && session.user.role !== "TEACHER") {
     redirect("/dashboard");
   }
 
@@ -170,7 +181,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             <nav className="flex-1 overflow-y-auto p-3">
               <div className="space-y-0.5">
-                {navigation.map((item) => {
+                {displayedNavigation.map((item) => {
                   const Icon = item.icon;
                   const hasChildren = item.children && item.children.length > 0;
                   const active = item.href ? isActive(item.href) : false;
@@ -307,7 +318,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-3 scrollbar-thin">
           <div className="space-y-1">
-            {navigation.map((item) => {
+            {displayedNavigation.map((item) => {
               const Icon = item.icon;
               const hasChildren = item.children && item.children.length > 0;
               const active = item.href ? isActive(item.href) : false;
@@ -415,7 +426,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     {session.user.name}
                   </p>
                   <p className="text-xs text-[var(--muted)] truncate">
-                    Quản trị viên
+                    {session.user.role === "ADMIN" ? "Quản trị viên (Admin)" : "Nhân viên thẩm định (Staff)"}
                   </p>
                 </div>
               </div>
