@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, Suspense, useEffect, useSyncExternalStore } from "react";
 import { signIn } from "next-auth/react";
@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/button";
-import { GraduationCap, BookOpen, BarChart3, Trophy } from "lucide-react";
+import { GraduationCap, BookOpen, BarChart3, Trophy, Sparkles } from "lucide-react";
 
 
 function useReducedMotion() {
