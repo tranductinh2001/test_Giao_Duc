@@ -1,62 +1,87 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 
-// POST /api/admin/settings/test - Test Beeknoee API key
+// POST /api/admin/settings/test - Kiểm tra kết nối API Beeknoee
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id || session.user.role !== "ADMIN") {
       return NextResponse.json(
-        { success: false, message: "Chỉ Admin mới có quyền truy cập" },
+        { success: false, message: "Chỉ Quản trị viên mới có quyền kiểm tra kết nối API" },
         { status: 403 }
       );
     }
 
     const body = await req.json();
-    const { beeApiKey } = body;
+    const { beeApiKey, beeBaseUrl, beeModel } = body;
 
-    if (!beeApiKey || typeof beeApiKey !== "string") {
+    const apiKey = (beeApiKey || process.env.BEE_API_KEY || process.env.BEEKNOEE_API_KEY || "").trim();
+    if (!apiKey) {
       return NextResponse.json(
-        { success: false, message: "API key không hợp lệ" },
+        { success: false, message: "Vui lòng nhập API Key để kiểm tra kết nối" },
         { status: 400 }
       );
     }
 
-    // Test API key by making a simple request to Beeknoee API
-    const BEE_BASE_URL = process.env.BEE_BASE_URL || "https://platform.beeknoee.com/api/v1";
-    const testUrl = `${BEE_BASE_URL}/chat/completions`;
+    const baseUrl = (beeBaseUrl || process.env.BEE_BASE_URL || process.env.BEEKNOEE_BASE_URL || "https://platform.beeknoee.com/api/v1").trim().replace(/\/+$/, "");
+    const model = (beeModel || process.env.BEE_MODEL || process.env.AI_MODEL || "gemini-3.1-flash-lite").trim();
 
-    const response = await fetch(testUrl, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${beeApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-3.1-flash-lite",
-        messages: [
-          {
-            role: "user",
-            content: "Hello"
-          }
-        ],
-        max_tokens: 10
-      }),
-    });
+    // Thử gọi endpoint test completions
+    const testUrl = `${baseUrl}/chat/completions`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+    let response;
+    try {
+      response = await fetch(testUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "user",
+              content: "ping"
+            }
+          ],
+          max_tokens: 5
+        }),
+        signal: controller.signal
+      });
+    } catch (fetchErr: any) {
+      clearTimeout(timeoutId);
+      if (fetchErr.name === 'AbortError') {
+        return NextResponse.json(
+          { success: false, message: `Hết thời gian kết nối (Timeout) tới ${baseUrl}` },
+          { status: 408 }
+        );
+      }
+      return NextResponse.json(
+        { success: false, message: `Không thể kết nối tới máy chủ Beeknoee (${fetchErr.message})` },
+        { status: 502 }
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error("Beeknoee API test failed:", error);
+      const errorText = await response.text();
+      console.error("Beeknoee API test failed:", response.status, errorText);
 
-      // Parse error message
-      let errorMessage = "API key không hợp lệ";
+      let errorMessage = `API Beeknoee trả về lỗi (mã ${response.status})`;
       try {
-        const errorJson = JSON.parse(error);
+        const errorJson = JSON.parse(errorText);
         if (errorJson.error?.message) {
           errorMessage = errorJson.error.message;
+        } else if (errorJson.message) {
+          errorMessage = errorJson.message;
         }
-      } catch (e) {
-        // Error is not JSON
+      } catch {
+        // Not JSON
       }
 
       return NextResponse.json(
@@ -67,28 +92,26 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
 
-    // Check if we got a valid response
     if (data.choices && data.choices.length > 0) {
       return NextResponse.json({
         success: true,
-        message: "API key hợp lệ",
+        message: `Kết nối thành công! API Key và mô hình ${model} hoạt động tốt.`,
         data: {
-          model: "gemini-3.1-flash-lite",
+          model,
           testPassed: true,
         },
       });
     }
 
     return NextResponse.json(
-      { success: false, message: "Không thể xác thực API key" },
-      { status: 400 }
+      { success: true, message: "Kết nối thành công tới API Beeknoee." }
     );
   } catch (error) {
-    console.error("Error testing API key:", error);
+    console.error("Error testing Beeknoee API:", error);
     return NextResponse.json(
       {
         success: false,
-        message: error instanceof Error ? error.message : "Lỗi khi test API key"
+        message: error instanceof Error ? error.message : "Lỗi kiểm tra kết nối API"
       },
       { status: 500 }
     );

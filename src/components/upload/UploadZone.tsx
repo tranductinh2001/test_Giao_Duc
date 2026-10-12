@@ -73,14 +73,14 @@ export default function UploadZone({
       {/* Header Pill */}
       <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold mb-3 shadow-xs">
         <Sparkles className="w-3.5 h-3.5 text-primary" />
-        <span>Hệ thống AI Thẩm định Kế hoạch Bài dạy (CV 5512 & 2345)</span>
+        <span>Thẩm định Kế hoạch Bài dạy (CV 5512 & CV 2345)</span>
       </div>
 
       <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground text-center tracking-tight mb-2">
-        Thẩm Định Giáo Án Thông Minh
+        Thẩm Định Kế Hoạch Bài Dạy
       </h1>
       <p className="text-muted-foreground text-center max-w-lg mb-6 text-xs sm:text-sm leading-relaxed">
-        Tự động bóc tách tiến trình sư phạm, chấm điểm Rubric 100 điểm và chỉ điểm trực tiếp nhận xét đóng góp trên từng trang bài giảng.
+        Bóc tách tiến trình sư phạm, kiểm tra tiêu chuẩn và nhận xét trực tiếp trên từng trang bài giảng.
       </p>
 
       {/* Upload Drop Container */}
@@ -146,7 +146,7 @@ export default function UploadZone({
                 }`}
               >
                 <Sparkles className="w-4 h-4 text-amber-500" />
-                Thử Ngay Giáo Án Mẫu
+                Dùng Giáo Án Mẫu
               </button>
             )}
           </div>
@@ -183,7 +183,7 @@ export default function UploadZone({
             <Target className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-foreground">Định Vị Tọa Độ Chuẩn</h3>
+            <h3 className="text-xs font-bold text-foreground">Định Vị Tọa Độ</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
               Ghim nhận xét và đánh dấu chính xác vị trí trên trang tài liệu.
             </p>
@@ -195,7 +195,7 @@ export default function UploadZone({
             <ShieldCheck className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-foreground">Chuẩn Bộ Giáo Dục</h3>
+            <h3 className="text-xs font-bold text-foreground">Chuẩn Bộ GD&ĐT</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
               Kiểm tra 4 pha hoạt động & 4 bước tổ chức dạy học sư phạm.
             </p>
@@ -207,9 +207,9 @@ export default function UploadZone({
             <Layers className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-foreground">Rubric Thang 100</h3>
+            <h3 className="text-xs font-bold text-foreground">Bảng Điểm Rubric</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-              Chấm điểm theo tiêu chí chi tiết và cho phép xuất PDF đóng dấu.
+              Chấm điểm theo tiêu chí chi tiết và hỗ trợ xuất PDF có nhận xét.
             </p>
           </div>
         </div>

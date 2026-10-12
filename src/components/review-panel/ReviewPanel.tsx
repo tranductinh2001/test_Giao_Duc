@@ -551,7 +551,7 @@ export default function ReviewPanel({
           }`}
         >
           <MessageSquare className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Hỏi AI</span>
+          <span>Hỏi Đáp</span>
           <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
         </button>
 

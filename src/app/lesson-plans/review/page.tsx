@@ -40,6 +40,7 @@ import {
   BookOpen,
   Brain,
   Sliders,
+  Key,
   BarChart3,
   GraduationCap,
   School,
@@ -542,7 +543,7 @@ export default function LessonPlanReviewPage() {
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground hidden lg:block truncate">
-                Đánh giá chuẩn sư phạm & đề xuất chỉnh sửa chi tiết
+                Kiểm tra tiến trình sư phạm & đối chiếu tiêu chí Bộ GD&ĐT
               </p>
             </div>
           </div>
@@ -577,33 +578,37 @@ export default function LessonPlanReviewPage() {
 
           {/* Right Action Bar */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Role Quota Badge */}
+            {/* Role Quota & Tokens Badge (Khong de so tien, chi de so lan tao va so token da su dung) */}
             {isAdmin ? (
-              <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-xs shadow-2xs">
-                <span className="text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1">
+              <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-xs shadow-2xs">
+                <span className="text-purple-600 dark:text-purple-400 font-bold">
                   👑 Admin • Vô hạn lượt
+                </span>
+                <span className="w-px h-3 bg-purple-500/30"></span>
+                <span className="text-muted-foreground text-[11px]" title="Tổng token đã sử dụng">
+                  {tokensUsed.toLocaleString('vi-VN')} tokens đã dùng
                 </span>
                 <span className="w-px h-3 bg-purple-500/30"></span>
                 <Link
                   href="/admin/users"
                   className="text-primary hover:underline text-[11px] font-semibold"
-                  title="Quản lý nhân viên và cấp phát quota"
+                  title="Quản lý nhân viên và cấp phát lượt"
                 >
                   Cấp Lượt
                 </Link>
               </div>
             ) : (isTeacher || isLearner) ? (
               <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs shadow-2xs">
-                <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{remainingReviews}/{quotaTotal} lượt</span>
+                <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold">
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>{remainingReviews}/{quotaTotal} lượt tạo</span>
                 </div>
                 <span className="w-px h-3 bg-blue-500/30"></span>
                 <span
-                  className="text-muted-foreground text-[11px]"
-                  title={`Chi phí Beeknoee: ${tokensUsed.toLocaleString('vi-VN')} tokens ~ ${estimatedCostVND.toLocaleString('vi-VN')} đ (${estimatedCostUSD})`}
+                  className="text-muted-foreground text-[11px] font-medium"
+                  title="Tổng số token đã sử dụng"
                 >
-                  {(tokensUsed / 1000).toFixed(1)}k tokens (~{estimatedCostVND.toLocaleString('vi-VN')} đ)
+                  {tokensUsed.toLocaleString('vi-VN')} tokens đã dùng
                 </span>
                 {isQuotaExceeded && (
                   <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-500 text-white font-bold animate-pulse">
@@ -660,10 +665,10 @@ export default function LessonPlanReviewPage() {
                       ? 'bg-muted text-muted-foreground cursor-not-allowed border border-border'
                       : 'bg-primary hover:bg-primary/90 text-primary-foreground'
                   }`}
-                  title={isQuotaExceeded ? 'Tài khoản đã hết lượt thẩm định' : 'Nạp giáo án mẫu toán lớp 3'}
+                  title={isQuotaExceeded ? 'Tài khoản đã hết lượt thẩm định' : 'Mở giáo án mẫu để kiểm tra'}
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Nạp Mẫu</span>
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Giáo Án Mẫu</span>
                 </button>
               </>
             ) : (
