@@ -52,6 +52,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import EvaluationConfigModal from '@/components/config-modal/EvaluationConfigModal';
+import { calculateBeeknoeeCost, BEEKNOEE_CONFIG } from '@/lib/beeknoee-billing';
 import {
   DEFAULT_EVALUATION_POLICY,
   EvaluationPolicyConfig,
@@ -98,7 +99,12 @@ export default function LessonPlanReviewPage() {
 
   const remainingReviews = isAdmin ? 999999 : Math.max(0, quotaTotal - quotaUsed);
   const isQuotaExceeded = !isAdmin && remainingReviews <= 0;
-  const estimatedCostVND = Math.round(tokensUsed * 0.5);
+  const beeknoeeMetrics = calculateBeeknoeeCost(
+    Math.round(tokensUsed * 0.7),
+    Math.round(tokensUsed * 0.3)
+  );
+  const estimatedCostVND = beeknoeeMetrics.costVnd;
+  const estimatedCostUSD = beeknoeeMetrics.formattedUsd;
 
   const [document, setDocument] = useState<DocumentIR | null>(null);
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
@@ -189,7 +195,7 @@ export default function LessonPlanReviewPage() {
           return next;
         });
         setTokensUsed((prev) => {
-          const addedTokens = Math.floor(3600 + Math.random() * 800);
+          const addedTokens = Math.floor(16500 + Math.random() * 4000);
           const next = prev + addedTokens;
           if (typeof window !== 'undefined') localStorage.setItem('review_tokens_used', String(next));
           return next;
@@ -585,15 +591,18 @@ export default function LessonPlanReviewPage() {
                   Cấp Lượt
                 </Link>
               </div>
-            ) : isTeacher ? (
-              <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs shadow-2xs">
-                <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400 font-bold">
+            ) : (isTeacher || isLearner) ? (
+              <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs shadow-2xs">
+                <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold">
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>{remainingReviews}/{quotaTotal} lượt</span>
                 </div>
-                <span className="w-px h-3 bg-orange-500/30"></span>
-                <span className="text-muted-foreground text-[11px]" title={`Đã dùng ${tokensUsed.toLocaleString('vi-VN')} tokens ~ ${estimatedCostVND.toLocaleString('vi-VN')} đ`}>
-                  {(tokensUsed / 1000).toFixed(1)}k tokens (~{Math.round(estimatedCostVND / 1000)}k đ)
+                <span className="w-px h-3 bg-blue-500/30"></span>
+                <span
+                  className="text-muted-foreground text-[11px]"
+                  title={`Chi phí Beeknoee: ${tokensUsed.toLocaleString('vi-VN')} tokens ~ ${estimatedCostVND.toLocaleString('vi-VN')} đ (${estimatedCostUSD})`}
+                >
+                  {(tokensUsed / 1000).toFixed(1)}k tokens (~{estimatedCostVND.toLocaleString('vi-VN')} đ)
                 </span>
                 {isQuotaExceeded && (
                   <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-500 text-white font-bold animate-pulse">

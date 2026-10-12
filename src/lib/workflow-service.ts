@@ -20,8 +20,9 @@ import { readFile } from 'fs/promises';
 import path, { join } from 'path';
 
 // Cost estimation constants (Gemini pricing)
-const COST_PER_1M_PROMPT_TOKENS = 0.0; // Free for Gemini 2.0 Flash
-const COST_PER_1M_COMPLETION_TOKENS = 0.0;
+// Beeknoee Cost estimation constants (https://platform.beeknoee.com/docs/pricing-explained)
+const COST_PER_1M_PROMPT_TOKENS = 0.3; // $0.3 per 1M prompt tokens
+const COST_PER_1M_COMPLETION_TOKENS = 1.2; // $1.2 per 1M completion tokens
 
 /**
  * Calculate estimated cost based on token usage

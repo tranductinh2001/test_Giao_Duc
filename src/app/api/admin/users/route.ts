@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 import { getErrorMessage } from "@/lib/api";
+import { calculateBeeknoeeCost, BEEKNOEE_CONFIG, ROLE_DEFAULT_QUOTAS } from "@/lib/beeknoee-billing";
 
 export async function GET(req: Request) {
   try {
@@ -49,6 +50,7 @@ export async function GET(req: Request) {
             status: true,
             licenseExpiresAt: true,
             monthlyReviewsUsed: true,
+            pricingTier: true,
             createdAt: true,
             updatedAt: true,
             _count: {
@@ -66,82 +68,108 @@ export async function GET(req: Request) {
       users = rawUsers.map((u) => {
         const isStaff = u.role === "TEACHER";
         const isAdmin = u.role === "ADMIN";
-        const quotaTotal = isAdmin ? 999999 : isStaff ? 50 : 0;
-        const quotaUsed = isAdmin ? 0 : isStaff ? u.monthlyReviewsUsed || 12 : 0;
-        const tokens = isAdmin ? 0 : isStaff ? 48250 : 0;
+        const isLearner = u.role === "LEARNER";
+
+        // Tính quota dựa trên vai trò
+        const quotaTotal = isAdmin
+          ? ROLE_DEFAULT_QUOTAS.ADMIN.totalQuota
+          : isStaff
+          ? ROLE_DEFAULT_QUOTAS.TEACHER.totalQuota
+          : Math.max(ROLE_DEFAULT_QUOTAS.LEARNER.totalQuota, (u.monthlyReviewsUsed || 0) + 5);
+
+        const quotaUsed = isAdmin ? 0 : u.monthlyReviewsUsed || 0;
+
+        // Ước tính token thực dùng theo chuẩn Beeknoee
+        const estimatedTokens = isAdmin
+          ? 0
+          : isStaff
+          ? Math.max(48250, (u.monthlyReviewsUsed || 1) * BEEKNOEE_CONFIG.ESTIMATED_TOKENS_PER_KHBD)
+          : (u.monthlyReviewsUsed || 0) * BEEKNOEE_CONFIG.ESTIMATED_TOKENS_PER_KHBD;
+
+        const promptTokens = Math.round(estimatedTokens * 0.7);
+        const completionTokens = Math.round(estimatedTokens * 0.3);
+        const beeknoeeBilling = calculateBeeknoeeCost(promptTokens, completionTokens);
 
         return {
           ...u,
           reviewQuotaTotal: quotaTotal,
           reviewQuotaUsed: quotaUsed,
-          tokensUsed: tokens,
-          costVND: Math.round(tokens * 0.5),
+          tokensUsed: estimatedTokens,
+          promptTokens,
+          completionTokens,
+          costUsd: beeknoeeBilling.costUsd,
+          costVnd: beeknoeeBilling.costVnd,
+          costFormattedUsd: beeknoeeBilling.formattedUsd,
+          costFormattedVnd: beeknoeeBilling.formattedVnd,
         };
       });
 
       total = count;
     } catch (dbError) {
-      console.warn("[Admin Users API] Database error, providing structured 3-role fallback data:", dbError);
-      const mockUsers = [
+      console.warn("[Admin Users API] Database query failed, using structured 3-role fallback data:", dbError);
+      total = 3;
+      users = [
         {
           id: "admin-default-id",
           name: "Quản Trị Viên (Admin)",
           email: "admin@gmail.com",
-          role: "ADMIN" as const,
-          status: "ACTIVE" as const,
+          role: "ADMIN",
+          status: "ACTIVE",
           licenseExpiresAt: null,
           monthlyReviewsUsed: 0,
+          pricingTier: "ENTERPRISE",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           reviewQuotaTotal: 999999,
           reviewQuotaUsed: 0,
           tokensUsed: 0,
-          costVND: 0,
-          createdAt: new Date("2026-01-01").toISOString(),
-          updatedAt: new Date().toISOString(),
+          costUsd: 0,
+          costVnd: 0,
+          costFormattedUsd: "$0.00",
+          costFormattedVnd: "0 đ",
           _count: { examAttempts: 0, bookmarks: 0, wrongAnswers: 0 },
         },
         {
           id: "staff-default-id",
-          name: "Nhân Viên Thẩm Định (Cô Lan Anh)",
+          name: "Nhân Viên Thẩm Định (Staff)",
           email: "nhanvien@gmail.com",
-          role: "TEACHER" as const,
-          status: "ACTIVE" as const,
-          licenseExpiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+          role: "TEACHER",
+          status: "ACTIVE",
+          licenseExpiresAt: null,
           monthlyReviewsUsed: 12,
+          pricingTier: "PRO",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           reviewQuotaTotal: 50,
           reviewQuotaUsed: 12,
           tokensUsed: 48250,
-          costVND: 24125,
-          createdAt: new Date("2026-02-15").toISOString(),
-          updatedAt: new Date().toISOString(),
-          _count: { examAttempts: 4, bookmarks: 8, wrongAnswers: 2 },
+          costUsd: 0.0275,
+          costVnd: 756,
+          costFormattedUsd: "$0.0275",
+          costFormattedVnd: "756 đ",
+          _count: { examAttempts: 5, bookmarks: 2, wrongAnswers: 1 },
         },
         {
           id: "customer-default-id",
-          name: "Khách Hàng (Học Viên Online)",
+          name: "Khách Hàng / Học Viên",
           email: "khachhang@gmail.com",
-          role: "LEARNER" as const,
-          status: "ACTIVE" as const,
-          licenseExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          monthlyReviewsUsed: 0,
-          reviewQuotaTotal: 0,
-          reviewQuotaUsed: 0,
-          tokensUsed: 0,
-          costVND: 0,
-          createdAt: new Date("2026-03-01").toISOString(),
+          role: "LEARNER",
+          status: "ACTIVE",
+          licenseExpiresAt: null,
+          monthlyReviewsUsed: 2,
+          pricingTier: "FREE",
+          createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          _count: { examAttempts: 15, bookmarks: 12, wrongAnswers: 7 },
+          reviewQuotaTotal: 10,
+          reviewQuotaUsed: 2,
+          tokensUsed: 37000,
+          costUsd: 0.0210,
+          costVnd: 578,
+          costFormattedUsd: "$0.0210",
+          costFormattedVnd: "578 đ",
+          _count: { examAttempts: 12, bookmarks: 4, wrongAnswers: 3 },
         },
       ];
-
-      const filtered = mockUsers.filter((u) => {
-        if (search && !u.name.toLowerCase().includes(search.toLowerCase()) && !u.email.toLowerCase().includes(search.toLowerCase())) return false;
-        if (status && u.status !== status) return false;
-        if (role && u.role !== role) return false;
-        return true;
-      });
-
-      total = filtered.length;
-      users = filtered.slice((page - 1) * limit, page * limit);
     }
 
     return NextResponse.json({
@@ -152,8 +180,9 @@ export async function GET(req: Request) {
           total,
           page,
           limit,
-          totalPages: Math.max(Math.ceil(total / limit), 1),
+          totalPages: Math.ceil(total / limit) || 1,
         },
+        beeknoeeConfig: BEEKNOEE_CONFIG,
       },
     });
   } catch (error: unknown) {
@@ -167,7 +196,26 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await auth();
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "TEACHER")) {
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
+        { status: 403 }
+      );
+    }
+
+    // Nhân viên không có quyền tạo người dùng!
+    if (session.user.role === "TEACHER") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "FORBIDDEN",
+          message: "Nhân viên chỉ có quyền xem danh sách và cấp hạn mức cho Khách hàng. Quyền tạo người dùng mới thuộc về Quản trị viên (Admin).",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (session.user.role !== "ADMIN") {
       return NextResponse.json(
         { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
         { status: 403 }
@@ -179,16 +227,8 @@ export async function POST(req: Request) {
 
     if (!name || !email || !password) {
       return NextResponse.json(
-        { success: false, error: "VALIDATION_ERROR", message: "Ten, email va mat khau la bat buoc." },
+        { success: false, error: "VALIDATION_ERROR", message: "Tên, email và mật khẩu là bắt buộc." },
         { status: 400 }
-      );
-    }
-
-    // Role check for TEACHER: can only create LEARNER
-    if (session.user.role === "TEACHER" && role && role !== "LEARNER") {
-      return NextResponse.json(
-        { success: false, error: "FORBIDDEN", message: "Nhân viên chỉ có quyền tạo tài khoản Học viên (LEARNER)." },
-        { status: 403 }
       );
     }
 
@@ -198,7 +238,7 @@ export async function POST(req: Request) {
 
     if (existingUser) {
       return NextResponse.json(
-        { success: false, error: "DUPLICATE_EMAIL", message: "Email da ton tai trong he thong." },
+        { success: false, error: "DUPLICATE_EMAIL", message: "Email đã tồn tại trong hệ thống." },
         { status: 400 }
       );
     }
@@ -246,7 +286,86 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const userId = body.userId || body.id;
+    const userId = body.id || body.userId;
+
+    // ========================================================
+    // TÁC VỤ 1: PHÂN LUỒNG HẠN MỨC (GRANT QUOTA)
+    // Cả Admin và Nhân viên đều có thể thực hiện
+    // Nhân viên chỉ được phân luồng hạn cho Khách hàng (LEARNER)
+    // ========================================================
+    if (body.action === "GRANT_QUOTA" || typeof body.addQuota === "number") {
+      if (!userId) {
+        return NextResponse.json(
+          { success: false, error: "VALIDATION_ERROR", message: "User ID là bắt buộc khi cấp hạn mức." },
+          { status: 400 }
+        );
+      }
+
+      const addCount = Math.max(1, Math.min(100, parseInt(body.addQuota || "10", 10)));
+      const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+
+      if (!targetUser) {
+        return NextResponse.json(
+          { success: false, error: "NOT_FOUND", message: "Không tìm thấy người dùng." },
+          { status: 404 }
+        );
+      }
+
+      // Ràng buộc Nhân viên: chỉ được cấp quota cho Khách hàng (LEARNER)
+      if (session.user.role === "TEACHER" && targetUser.role !== "LEARNER") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "FORBIDDEN",
+            message: "Nhân viên chỉ có quyền phân luồng cấp hạn mức cho Khách hàng / Học viên (LEARNER).",
+          },
+          { status: 403 }
+        );
+      }
+
+      // Giảm số lượt đã dùng (tương đương cấp thêm lượt) hoặc cập nhật
+      const newMonthlyUsed = Math.max(0, (targetUser.monthlyReviewsUsed || 0) - addCount);
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          monthlyReviewsUsed: newMonthlyUsed,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          monthlyReviewsUsed: true,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã cấp thêm ${addCount} lượt thẩm định KHBD cho ${updated.name}.`,
+        data: {
+          ...updated,
+          addedQuota: addCount,
+          effectiveQuotaUsed: newMonthlyUsed,
+        },
+      });
+    }
+
+    // ========================================================
+    // TÁC VỤ 2: SỬA THÔNG TIN TÀI KHOẢN (EDIT/LOCK/ROLE)
+    // Chỉ Quản trị viên (ADMIN) mới có quyền!
+    // Nhân viên tuyệt đối không thể thay đổi người dùng.
+    // ========================================================
+    if (session.user.role === "TEACHER") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "FORBIDDEN",
+          message: "Nhân viên chỉ có quyền xem và phân luồng hạn mức cho Khách hàng, không thể thay đổi thông tin tài khoản, khóa hoặc sửa vai trò của người dùng.",
+        },
+        { status: 403 }
+      );
+    }
+
     const { name, email, password, role, status, licenseExpiresAt } = body;
 
     if (!userId) {
@@ -268,23 +387,6 @@ export async function PATCH(req: Request) {
         { success: false, error: "FORBIDDEN", message: "Không thể tự thay đổi vai trò của chính mình." },
         { status: 400 }
       );
-    }
-
-    // Role restrictions for TEACHER (Staff):
-    if (session.user.role === "TEACHER") {
-      const targetUser = await prisma.user.findUnique({ where: { id: userId } });
-      if (targetUser && (targetUser.role === "ADMIN" || (targetUser.role === "TEACHER" && targetUser.id !== session.user.id))) {
-        return NextResponse.json(
-          { success: false, error: "FORBIDDEN", message: "Nhân viên không có quyền can thiệp tài khoản Quản trị viên hoặc Nhân viên khác." },
-          { status: 403 }
-        );
-      }
-      if (role && role !== "LEARNER") {
-        return NextResponse.json(
-          { success: false, error: "FORBIDDEN", message: "Nhân viên không có quyền nâng cấp vai trò người dùng." },
-          { status: 403 }
-        );
-      }
     }
 
     const updateData: any = {};
@@ -352,12 +454,29 @@ export async function PATCH(req: Request) {
   }
 }
 
-export const PUT = PATCH;
-
 export async function DELETE(req: Request) {
   try {
     const session = await auth();
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "TEACHER")) {
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
+        { status: 403 }
+      );
+    }
+
+    // Nhân viên không có quyền xóa người dùng
+    if (session.user.role === "TEACHER") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "FORBIDDEN",
+          message: "Nhân viên không có quyền xóa người dùng. Quyền xóa tài khoản thuộc về Quản trị viên (Admin).",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (session.user.role !== "ADMIN") {
       return NextResponse.json(
         { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
         { status: 403 }
@@ -365,14 +484,7 @@ export async function DELETE(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    let userId = searchParams.get("userId") || searchParams.get("id");
-
-    if (!userId) {
-      try {
-        const body = await req.json();
-        userId = body.userId || body.id;
-      } catch (_) {}
-    }
+    const userId = searchParams.get("id");
 
     if (!userId) {
       return NextResponse.json(
@@ -388,28 +500,11 @@ export async function DELETE(req: Request) {
       );
     }
 
-    // Role restrictions for TEACHER (Staff):
-    if (session.user.role === "TEACHER") {
-      const targetUser = await prisma.user.findUnique({ where: { id: userId } });
-      if (targetUser && targetUser.role !== "LEARNER") {
-        return NextResponse.json(
-          { success: false, error: "FORBIDDEN", message: "Nhân viên chỉ có quyền xóa tài khoản Học viên / Khách hàng (LEARNER)." },
-          { status: 403 }
-        );
-      }
-    }
+    await prisma.user.delete({
+      where: { id: userId },
+    });
 
-    try {
-      await prisma.user.delete({
-        where: { id: userId },
-      });
-    } catch (err: any) {
-      if (err?.code !== "P2025") {
-        throw err;
-      }
-    }
-
-    return NextResponse.json({ success: true, message: "Đã xóa người dùng thành công." });
+    return NextResponse.json({ success: true, message: "Da xoa nguoi dung thanh cong." });
   } catch (error: unknown) {
     return NextResponse.json(
       { success: false, error: "INTERNAL_SERVER_ERROR", message: getErrorMessage(error) },

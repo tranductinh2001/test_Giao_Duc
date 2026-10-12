@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
+import { calculateBeeknoeeCost, BEEKNOEE_CONFIG, ROLE_DEFAULT_QUOTAS } from "@/lib/beeknoee-billing";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -31,6 +32,13 @@ export async function GET(req: NextRequest, context: RouteContext) {
         pricingTier: true,
         createdAt: true,
         updatedAt: true,
+        _count: {
+          select: {
+            examAttempts: true,
+            bookmarks: true,
+            wrongAnswers: true,
+          },
+        },
       },
     });
 
@@ -41,7 +49,34 @@ export async function GET(req: NextRequest, context: RouteContext) {
       );
     }
 
-    return NextResponse.json({ success: true, data: user });
+    const isStaff = user.role === "TEACHER";
+    const isAdmin = user.role === "ADMIN";
+    const quotaTotal = isAdmin
+      ? ROLE_DEFAULT_QUOTAS.ADMIN.totalQuota
+      : isStaff
+      ? ROLE_DEFAULT_QUOTAS.TEACHER.totalQuota
+      : Math.max(ROLE_DEFAULT_QUOTAS.LEARNER.totalQuota, (user.monthlyReviewsUsed || 0) + 5);
+
+    const estimatedTokens = isAdmin ? 0 : (user.monthlyReviewsUsed || 1) * BEEKNOEE_CONFIG.ESTIMATED_TOKENS_PER_KHBD;
+    const promptTokens = Math.round(estimatedTokens * 0.7);
+    const completionTokens = Math.round(estimatedTokens * 0.3);
+    const beeknoeeBilling = calculateBeeknoeeCost(promptTokens, completionTokens);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...user,
+        reviewQuotaTotal: quotaTotal,
+        reviewQuotaUsed: user.monthlyReviewsUsed || 0,
+        tokensUsed: estimatedTokens,
+        promptTokens,
+        completionTokens,
+        costUsd: beeknoeeBilling.costUsd,
+        costVnd: beeknoeeBilling.costVnd,
+        costFormattedUsd: beeknoeeBilling.formattedUsd,
+        costFormattedVnd: beeknoeeBilling.formattedVnd,
+      },
+    });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: "INTERNAL_SERVER_ERROR", message: error?.message || "Loi may chu." },
@@ -62,6 +97,62 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
     const { id: userId } = await context.params;
     const body = await req.json();
+
+    // ========================================================
+    // TÁC VỤ 1: CẤP HẠN MỨC (GRANT QUOTA)
+    // ========================================================
+    if (body.action === "GRANT_QUOTA" || typeof body.addQuota === "number") {
+      const addCount = Math.max(1, Math.min(100, parseInt(body.addQuota || "10", 10)));
+      const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+
+      if (!targetUser) {
+        return NextResponse.json(
+          { success: false, error: "NOT_FOUND", message: "Không tìm thấy người dùng." },
+          { status: 404 }
+        );
+      }
+
+      // Ràng buộc Nhân viên: chỉ được cấp quota cho Khách hàng (LEARNER)
+      if (session.user.role === "TEACHER" && targetUser.role !== "LEARNER") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "FORBIDDEN",
+            message: "Nhân viên chỉ có quyền phân luồng cấp hạn mức cho Khách hàng / Học viên (LEARNER).",
+          },
+          { status: 403 }
+        );
+      }
+
+      const newMonthlyUsed = Math.max(0, (targetUser.monthlyReviewsUsed || 0) - addCount);
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { monthlyReviewsUsed: newMonthlyUsed },
+        select: { id: true, name: true, email: true, role: true, monthlyReviewsUsed: true },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã cấp thêm ${addCount} lượt thẩm định KHBD cho ${updated.name}.`,
+        data: updated,
+      });
+    }
+
+    // ========================================================
+    // TÁC VỤ 2: SỬA THÔNG TIN NGƯỜI DÙNG
+    // Chỉ Quản trị viên (ADMIN) mới có quyền!
+    // ========================================================
+    if (session.user.role === "TEACHER") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "FORBIDDEN",
+          message: "Nhân viên chỉ có quyền xem và phân luồng hạn mức cho Khách hàng, không thể thay đổi thông tin người dùng, khóa tài khoản hoặc sửa vai trò.",
+        },
+        { status: 403 }
+      );
+    }
+
     const { name, email, password, role, status, licenseExpiresAt } = body;
 
     if (!userId) {
@@ -85,23 +176,6 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       );
     }
 
-    // Role restrictions for TEACHER (Staff):
-    if (session.user.role === "TEACHER") {
-      const targetUser = await prisma.user.findUnique({ where: { id: userId } });
-      if (targetUser && (targetUser.role === "ADMIN" || (targetUser.role === "TEACHER" && targetUser.id !== session.user.id))) {
-        return NextResponse.json(
-          { success: false, error: "FORBIDDEN", message: "Nhân viên không có quyền can thiệp tài khoản Quản trị viên hoặc Nhân viên khác." },
-          { status: 403 }
-        );
-      }
-      if (role && role !== "LEARNER") {
-        return NextResponse.json(
-          { success: false, error: "FORBIDDEN", message: "Nhân viên không có quyền nâng cấp vai trò người dùng." },
-          { status: 403 }
-        );
-      }
-    }
-
     const updateData: any = {};
     if (name) updateData.name = name;
     if (email) updateData.email = email;
@@ -112,53 +186,22 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       updateData.licenseExpiresAt = licenseExpiresAt ? new Date(licenseExpiresAt) : null;
     }
 
-    try {
-      const updated = await prisma.user.update({
-        where: { id: userId },
-        data: updateData,
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          status: true,
-          licenseExpiresAt: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        licenseExpiresAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-      return NextResponse.json({ success: true, data: updated });
-    } catch (dbErr: any) {
-      if (dbErr?.code === "P2025") {
-        if (userId === "admin-default-id" || userId === "staff-default-id" || userId === "customer-default-id") {
-          const defaultPassword = await bcrypt.hash("admin12345", 10);
-          const created = await prisma.user.create({
-            data: {
-              id: userId,
-              name: name || (userId === "admin-default-id" ? "Quản Trị Viên (Admin)" : "Nhân Viên"),
-              email: email || (userId === "admin-default-id" ? "admin@gmail.com" : "nhanvien@gmail.com"),
-              password: defaultPassword,
-              role: role || (userId === "admin-default-id" ? "ADMIN" : "TEACHER"),
-              status: status || "ACTIVE",
-              licenseExpiresAt: licenseExpiresAt ? new Date(licenseExpiresAt) : null,
-            },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
-              status: true,
-              licenseExpiresAt: true,
-              createdAt: true,
-              updatedAt: true,
-            },
-          });
-          return NextResponse.json({ success: true, data: created });
-        }
-      }
-      throw dbErr;
-    }
+    return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: "INTERNAL_SERVER_ERROR", message: error?.message || "Loi may chu." },
@@ -167,12 +210,28 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   }
 }
 
-export const PUT = PATCH;
-
 export async function DELETE(req: NextRequest, context: RouteContext) {
   try {
     const session = await auth();
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "TEACHER")) {
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
+        { status: 403 }
+      );
+    }
+
+    if (session.user.role === "TEACHER") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "FORBIDDEN",
+          message: "Nhân viên không có quyền xóa người dùng. Quyền xóa tài khoản thuộc về Quản trị viên (Admin).",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (session.user.role !== "ADMIN") {
       return NextResponse.json(
         { success: false, error: "FORBIDDEN", message: "Ban khong co quyen truy cap tai nguyen nay." },
         { status: 403 }
@@ -195,28 +254,11 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
       );
     }
 
-    // Role restrictions for TEACHER (Staff):
-    if (session.user.role === "TEACHER") {
-      const targetUser = await prisma.user.findUnique({ where: { id: userId } });
-      if (targetUser && targetUser.role !== "LEARNER") {
-        return NextResponse.json(
-          { success: false, error: "FORBIDDEN", message: "Nhân viên chỉ có quyền xóa tài khoản Học viên / Khách hàng (LEARNER)." },
-          { status: 403 }
-        );
-      }
-    }
+    await prisma.user.delete({
+      where: { id: userId },
+    });
 
-    try {
-      await prisma.user.delete({
-        where: { id: userId },
-      });
-    } catch (err: any) {
-      if (err?.code !== "P2025") {
-        throw err;
-      }
-    }
-
-    return NextResponse.json({ success: true, message: "Đã xóa người dùng thành công." });
+    return NextResponse.json({ success: true, message: "Da xoa nguoi dung thanh cong." });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: "INTERNAL_SERVER_ERROR", message: error?.message || "Loi may chu." },
