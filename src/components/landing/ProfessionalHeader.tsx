@@ -261,7 +261,7 @@ export function ProfessionalHeader() {
                 <div className="h-10 w-24 animate-pulse rounded-xl bg-muted" />
               ) : session ? (
                 <>
-                  <Link href={session.user.role === 'ADMIN' ? '/admin' : '/dashboard'}>
+                  <Link href={(session.user.role === 'ADMIN' || session.user.role === 'TEACHER') ? '/admin' : '/dashboard'}>
                     <button className="h-10 px-5 text-sm font-semibold rounded-xl text-foreground hover:bg-accent/80 transition-all duration-200 flex items-center gap-2">
                       <User className="w-4 h-4" />
                       <span>{session.user.name || 'Dashboard'}</span>
@@ -371,7 +371,7 @@ export function ProfessionalHeader() {
                   </div>
                 ) : session ? (
                   <>
-                    <Link href={session.user.role === 'ADMIN' ? '/admin' : '/dashboard'} onClick={() => setMobileMenuOpen(false)}>
+                    <Link href={(session.user.role === 'ADMIN' || session.user.role === 'TEACHER') ? '/admin' : '/dashboard'} onClick={() => setMobileMenuOpen(false)}>
                       <button className="w-full h-12 rounded-xl border-2 border-border bg-background text-foreground font-semibold hover:bg-accent/50 transition-all duration-200 text-sm flex items-center justify-center gap-2">
                         <User className="w-4 h-4" />
                         Dashboard

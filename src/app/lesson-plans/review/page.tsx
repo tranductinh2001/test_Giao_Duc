@@ -71,6 +71,7 @@ export default function LessonPlanReviewPage() {
   const isAdmin = userRole === 'ADMIN';
   const isTeacher = userRole === 'TEACHER';
   const isLearner = userRole === 'LEARNER';
+  const isStaffOrAdmin = isAdmin || isTeacher;
 
   // Quota & Token state tracking (Khóa tính năng khi hết lượt với Nhân viên, Admin vô hạn)
   const [quotaTotal, setQuotaTotal] = useState<number>(() => {
@@ -514,9 +515,9 @@ export default function LessonPlanReviewPage() {
           {/* Left: Brand & Standard Pill */}
           <div className="flex items-center gap-2.5 min-w-0">
             <Link
-              href={isAdmin ? "/admin" : "/"}
+              href={isStaffOrAdmin ? "/admin" : "/"}
               className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted border border-border/60 transition-colors flex-shrink-0"
-              title={isAdmin ? "Về Bảng điều khiển Admin" : "Về Trang chủ"}
+              title={isStaffOrAdmin ? "Về Bảng điều khiển Quản trị" : "Về Trang chủ"}
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>

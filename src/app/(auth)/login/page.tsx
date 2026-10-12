@@ -96,7 +96,7 @@ function LoginForm() {
           if (session?.user?.role === "ADMIN") {
             nextUrl = "/admin";
           } else if (session?.user?.role === "TEACHER") {
-            nextUrl = "/lesson-plans/review";
+            nextUrl = "/admin";
           } else {
             nextUrl = "/dashboard";
           }

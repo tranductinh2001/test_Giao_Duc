@@ -5,7 +5,7 @@ import { signOut } from "next-auth/react";
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Target, FileText, BarChart3, User, Users, HelpCircle, ClipboardList, FolderOpen, Key, Menu, X, LogOut } from "lucide-react";
+import { Home, Target, FileText, BarChart3, User, Users, HelpCircle, ClipboardList, FolderOpen, Key, Menu, X, LogOut, Brain } from "lucide-react";
 
 interface MobileNavProps {
   userName: string;
@@ -33,7 +33,16 @@ export default function MobileNav({ userName, userRole }: MobileNavProps) {
     { href: "/admin/licenses", label: "Licenses", icon: Key },
   ];
 
-  const links = userRole === "ADMIN" ? adminLinks : learnerLinks;
+  const teacherLinks = [
+    { href: "/admin", label: "Tổng quan", icon: BarChart3 },
+    { href: "/admin/lesson-plans/evaluate", label: "Thẩm định GA (AI)", icon: Brain },
+    { href: "/admin/questions", label: "Questions", icon: HelpCircle },
+    { href: "/admin/exams", label: "Exams", icon: ClipboardList },
+    { href: "/admin/categories", label: "Categories", icon: FolderOpen },
+    { href: "/admin/users", label: "Users", icon: Users },
+  ];
+
+  const links = userRole === "ADMIN" ? adminLinks : userRole === "TEACHER" ? teacherLinks : learnerLinks;
 
   return (
     <>
@@ -76,7 +85,7 @@ export default function MobileNav({ userName, userRole }: MobileNavProps) {
             <p className="text-sm text-muted-foreground">Xin Chào,</p>
             <p className="text-lg font-semibold text-foreground">{userName}</p>
             <span className="mt-2 inline-block rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs text-primary font-medium">
-              {userRole === "ADMIN" ? "Quản Trị Viên" : "Học Viên"}
+              {userRole === "ADMIN" ? "Quản Trị Viên" : userRole === "TEACHER" ? "Nhân Viên" : "Học Viên"}
             </span>
           </div>
 

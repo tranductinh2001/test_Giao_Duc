@@ -245,7 +245,7 @@ export default function UserNavbar({ userName, userRole }: UserNavbarProps) {
                     })}
 
                     {/* Admin Panel Link */}
-                    {isAdmin && (
+                    {isStaffOrAdmin && (
                       <>
                         <div className="my-2 border-t border-[var(--border)]" />
                         <Link
@@ -495,7 +495,7 @@ export default function UserNavbar({ userName, userRole }: UserNavbarProps) {
               </div>
 
               {/* Admin Link */}
-              {isAdmin && (
+              {isStaffOrAdmin && (
                 <div className="mb-3">
                   <p className="px-3 py-2 text-xs font-semibold text-[var(--primary)] uppercase tracking-wider">
                     Quản trị

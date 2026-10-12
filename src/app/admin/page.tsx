@@ -236,10 +236,10 @@ export default async function AdminOverviewPage() {
           </div>
           <div className="p-4 grid grid-cols-2 gap-3">
             {[
+              { label: "Thẩm định GA (AI)", href: "/admin/lesson-plans/evaluate", icon: Brain, color: "primary" },
+              { label: "Câu hỏi & Đề thi", href: "/admin/questions", icon: BookOpen, color: "secondary" },
               { label: "Góp ý", href: "/admin/feedback", icon: MessageSquare, color: "success" },
-              { label: "Templates", href: "/admin/templates", icon: FileText, color: "secondary" },
-              { label: "License", href: "/admin/licenses", icon: CheckCircle, color: "primary" },
-              { label: "Cài đặt", href: "/admin/settings", icon: Settings, color: "warning" },
+              { label: "Người dùng", href: "/admin/users", icon: Users, color: "warning" },
             ].map((item) => {
               const Icon = item.icon;
               const colors = colorMap[item.color];

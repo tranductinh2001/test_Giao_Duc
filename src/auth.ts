@@ -339,14 +339,105 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const normalizedEmail = email.toLowerCase().trim();
 
-        // 1A. Fast-path: Quản trị viên (ADMIN)
+        // 1. Kiểm tra tài khoản trong Database trước (Ưu tiên tuyệt đối dữ liệu DB)
+        let user = null;
+        try {
+          user = await prisma.user.findUnique({
+            where: { email: normalizedEmail },
+          });
+        } catch (dbError) {
+          console.warn("[Auth] Database unavailable during authorize, attempting fallback accounts.");
+        }
+
+        if (user && user.password) {
+          // Kiểm tra tài khoản bị khóa
+          if (user.status === "LOCKED") {
+            try {
+              await logLoginAttempt({
+                userId: user.id,
+                email: normalizedEmail,
+                ipAddress,
+                userAgent,
+                success: false,
+                failReason: "ACCOUNT_LOCKED",
+              });
+            } catch (_) {}
+            throw new Error("ACCOUNT_LOCKED");
+          }
+
+          // Kiểm tra brute-force lockout
+          try {
+            const shouldLock = await shouldLockAccount(normalizedEmail);
+            if (shouldLock) {
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { status: "LOCKED" },
+              });
+
+              await logSecurityEvent({
+                userId: user.id,
+                event: SecurityEvent.ACCOUNT_LOCKED,
+                details: { reason: "BRUTE_FORCE", ipAddress },
+                ipAddress,
+                userAgent,
+                success: true,
+              });
+
+              throw new Error("ACCOUNT_LOCKED");
+            }
+          } catch (e: any) {
+            if (e?.message === "ACCOUNT_LOCKED") throw e;
+          }
+
+          // Xác thực mật khẩu
+          const isValid = await bcrypt.compare(
+            credentials.password as string,
+            user.password
+          );
+
+          if (isValid) {
+            try {
+              await logLoginAttempt({
+                userId: user.id,
+                email: normalizedEmail,
+                ipAddress,
+                userAgent,
+                success: true,
+              });
+
+              await logSecurityEvent({
+                userId: user.id,
+                event: SecurityEvent.LOGIN_SUCCESS,
+                details: { ipAddress, userAgent },
+                ipAddress,
+                userAgent,
+                success: true,
+              });
+            } catch (_) {}
+
+            return {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              status: user.status,
+              licenseExpiresAt: user.licenseExpiresAt,
+              reviewQuotaTotal: user.role === "ADMIN" ? 999999 : (user.role === "TEACHER" ? 50 : 0),
+              reviewQuotaUsed: user.role === "ADMIN" ? 0 : (user.role === "TEACHER" ? (user.monthlyReviewsUsed || 12) : 0),
+              tokensUsed: user.role === "ADMIN" ? 0 : (user.role === "TEACHER" ? 48250 : 0),
+            };
+          }
+        }
+
+        // 2. Fallback cho các tài khoản mẫu / demo khi chưa có trong DB
+        // 2A. Quản trị viên (ADMIN)
         if (
           (normalizedEmail === "admin@gmail.com" || normalizedEmail === "admin@giaoduc.vn") &&
           (credentials.password === "admin12345" || credentials.password === "admin123")
         ) {
           return {
-            id: "admin-default-id",
-            name: "Quản Trị Viên (Admin)",
+            id: user?.id || "admin-default-id",
+            name: user?.name || "Quản Trị Viên (Admin)",
             email: "admin@gmail.com",
             role: "ADMIN" as const,
             status: "ACTIVE" as const,
@@ -357,14 +448,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           };
         }
 
-        // 1B. Fast-path: Nhân viên (STAFF / TEACHER)
+        // 2B. Nhân viên (STAFF / TEACHER)
         if (
           (normalizedEmail === "nhanvien@gmail.com" || normalizedEmail === "staff@gmail.com" || normalizedEmail === "nhanvien@giaoduc.vn") &&
           (credentials.password === "staff12345" || credentials.password === "nhanvien12345")
         ) {
+          // Tự động tạo bản ghi trong DB nếu DB đang hoạt động mà chưa có user
+          try {
+            if (!user) {
+              const hashedPassword = await bcrypt.hash("staff12345", 10);
+              const createdStaff = await prisma.user.create({
+                data: {
+                  email: "nhanvien@gmail.com",
+                  name: "Nhân Viên Thẩm Định (Cô Lan Anh)",
+                  password: hashedPassword,
+                  role: "TEACHER",
+                  status: "ACTIVE",
+                  monthlyReviewsUsed: 12,
+                  licenseExpiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+                },
+              });
+              user = createdStaff;
+            }
+          } catch (_) {}
+
           return {
-            id: "staff-default-id",
-            name: "Nhân Viên Thẩm Định (Cô Lan Anh)",
+            id: user?.id || "staff-default-id",
+            name: user?.name || "Nhân Viên Thẩm Định (Cô Lan Anh)",
             email: "nhanvien@gmail.com",
             role: "TEACHER" as const,
             status: "ACTIVE" as const,
@@ -375,14 +485,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           };
         }
 
-        // 1C. Fast-path: Khách hàng (LEARNER / CUSTOMER)
+        // 2C. Khách hàng (LEARNER / CUSTOMER)
         if (
-          (normalizedEmail === "khachhang@gmail.com" || normalizedEmail === "learner@gmail.com" || normalizedEmail === "user@gmail.com" || normalizedEmail === "khachhang@giaoduc.vn") &&
-          (credentials.password === "user12345" || credentials.password === "learner12345")
+          (normalizedEmail === "khachhang@gmail.com" || normalizedEmail === "khachhang@giaoduc.vn" || normalizedEmail === "user@gmail.com") &&
+          (credentials.password === "user12345" || credentials.password === "customer12345")
         ) {
           return {
-            id: "customer-default-id",
-            name: "Khách Hàng (Học Viên Online)",
+            id: user?.id || "customer-default-id",
+            name: user?.name || "Khách Hàng (Học Viên Online)",
             email: "khachhang@gmail.com",
             role: "LEARNER" as const,
             status: "ACTIVE" as const,
@@ -393,125 +503,65 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           };
         }
 
-        let user = null;
-        try {
-          user = await prisma.user.findUnique({
-            where: { email: normalizedEmail },
-          });
-        } catch (dbError) {
-          console.warn("[Auth] Database unavailable and account not recognized in fallback accounts.");
-          return null;
-        }
-
-        // Fallback check if user not in DB
-        if (!user || !user.password) {
-          try {
-            await logLoginAttempt({
-              email: normalizedEmail,
-              ipAddress,
-              userAgent,
-              success: false,
-              failReason: "USER_NOT_FOUND",
-            });
-          } catch (_) {}
-          return null;
-        }
-
-        // Check if account is locked
-        if (user.status === "LOCKED") {
-          try {
-            await logLoginAttempt({
-              userId: user.id,
-              email: normalizedEmail,
-              ipAddress,
-              userAgent,
-              success: false,
-              failReason: "ACCOUNT_LOCKED",
-            });
-          } catch (_) {}
-          throw new Error("ACCOUNT_LOCKED");
-        }
-
-        // Check brute-force lockout
-        try {
-          const shouldLock = await shouldLockAccount(normalizedEmail);
-          if (shouldLock) {
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { status: "LOCKED" },
-            });
-
-            await logSecurityEvent({
-              userId: user.id,
-              event: SecurityEvent.ACCOUNT_LOCKED,
-              details: { reason: "BRUTE_FORCE", ipAddress },
-              ipAddress,
-              userAgent,
-              success: true,
-            });
-
-            throw new Error("ACCOUNT_LOCKED");
-          }
-        } catch (e: any) {
-          if (e?.message === "ACCOUNT_LOCKED") throw e;
-        }
-
-        // Verify password
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!isValid) {
-          try {
-            await logLoginAttempt({
-              userId: user.id,
-              email: normalizedEmail,
-              ipAddress,
-              userAgent,
-              success: false,
-              failReason: "INVALID_PASSWORD",
-            });
-          } catch (_) {}
-          return null;
-        }
-
-        // Success - log it
+        // Nếu không khớp DB và cũng không khớp tài khoản demo -> Ghi log thất bại
         try {
           await logLoginAttempt({
-            userId: user.id,
             email: normalizedEmail,
             ipAddress,
             userAgent,
-            success: true,
-          });
-
-          await logSecurityEvent({
-            userId: user.id,
-            event: SecurityEvent.LOGIN_SUCCESS,
-            details: { ipAddress, userAgent },
-            ipAddress,
-            userAgent,
-            success: true,
+            success: false,
+            failReason: user ? "INVALID_PASSWORD" : "USER_NOT_FOUND",
           });
         } catch (_) {}
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          status: user.status,
-          licenseExpiresAt: user.licenseExpiresAt,
-          reviewQuotaTotal: user.role === "ADMIN" ? 999999 : (user.role === "TEACHER" ? 50 : 0),
-          reviewQuotaUsed: user.role === "ADMIN" ? 0 : (user.role === "TEACHER" ? (user.monthlyReviewsUsed || 12) : 0),
-          tokensUsed: user.role === "ADMIN" ? 0 : (user.role === "TEACHER" ? 48250 : 0),
-        };
+        return null;
       },
     }),
   ],
   callbacks: {
     ...authConfig.callbacks,
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id || token.id || token.sub;
+        token.email = user.email || token.email;
+        token.name = user.name || token.name;
+        token.role = user.role || token.role || "LEARNER";
+        token.status = user.status || token.status || "ACTIVE";
+        token.licenseExpiresAt = user.licenseExpiresAt ?? token.licenseExpiresAt ?? null;
+        token.reviewQuotaTotal =
+          typeof user.reviewQuotaTotal === "number"
+            ? user.reviewQuotaTotal
+            : (token.role === "ADMIN" ? 999999 : (token.role === "TEACHER" ? 50 : 0));
+        token.reviewQuotaUsed =
+          typeof user.reviewQuotaUsed === "number"
+            ? user.reviewQuotaUsed
+            : (token.reviewQuotaUsed ?? 0);
+        token.tokensUsed =
+          typeof user.tokensUsed === "number"
+            ? user.tokensUsed
+            : (token.tokensUsed ?? 0);
+      } else if (token.id || token.email) {
+        // Đồng bộ quyền role và trạng thái từ DB theo thời gian thực
+        try {
+          const dbUser = await prisma.user.findFirst({
+            where: token.id ? { id: token.id as string } : { email: token.email as string },
+            select: { role: true, status: true, monthlyReviewsUsed: true, licenseExpiresAt: true },
+          });
+          if (dbUser) {
+            token.role = dbUser.role;
+            token.status = dbUser.status;
+            token.licenseExpiresAt = dbUser.licenseExpiresAt;
+            token.reviewQuotaUsed = dbUser.monthlyReviewsUsed || 0;
+            if (token.role === "ADMIN") token.reviewQuotaTotal = 999999;
+            else if (token.role === "TEACHER") token.reviewQuotaTotal = 50;
+          }
+        } catch (_) {}
+      }
+
+      if (!token.role) token.role = "LEARNER";
+      if (!token.status) token.status = "ACTIVE";
+
+      return token;
+    },
     async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
         const email = (user?.email || profile?.email)?.toLowerCase().trim();

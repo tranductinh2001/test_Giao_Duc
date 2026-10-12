@@ -209,7 +209,7 @@ export default function MobileMenu({ isOpen, onClose, userName, userRole }: Mobi
             <span>Hồ sơ của tôi</span>
           </Link>
 
-          {userRole === "ADMIN" && (
+          {(userRole === "ADMIN" || userRole === "TEACHER") && (
             <Link
               href="/admin"
               onClick={onClose}
