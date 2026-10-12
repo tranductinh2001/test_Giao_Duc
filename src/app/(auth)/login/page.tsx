@@ -6,7 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/button";
-import { GraduationCap, BookOpen, BarChart3, Trophy, Sparkles } from "lucide-react";
+import { GraduationCap, BookOpen, BarChart3, Trophy } from "lucide-react";
+
 
 function useReducedMotion() {
   const reducedMotion = useSyncExternalStore(
@@ -294,68 +295,6 @@ function LoginForm() {
                   Chỉ cần vài thao tác là vào được hệ thống.
                 </p>
               </motion.div>
-
-              {/* Quick Role Selection for Demo / Testing */}
-              <div className="mb-5 rounded-xl border border-primary/20 bg-primary/5 p-3 sm:p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" /> 3 Nhóm Tài Khoản Mẫu
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">Bấm để chọn nhanh</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail("admin@gmail.com");
-                      setPassword("admin12345");
-                    }}
-                    className={`flex flex-col items-center justify-center p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                      email === "admin@gmail.com"
-                        ? "bg-purple-600 text-white border-purple-600 shadow-sm"
-                        : "bg-card hover:bg-muted text-foreground border-border"
-                    }`}
-                  >
-                    <span className="text-sm mb-0.5">👑</span>
-                    <span className="truncate w-full text-center font-bold">Admin</span>
-                    <span className="text-[10px] opacity-80 font-normal">Vô hạn lượt</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail("nhanvien@gmail.com");
-                      setPassword("staff12345");
-                    }}
-                    className={`flex flex-col items-center justify-center p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                      email === "nhanvien@gmail.com"
-                        ? "bg-orange-600 text-white border-orange-600 shadow-sm"
-                        : "bg-card hover:bg-muted text-foreground border-border"
-                    }`}
-                  >
-                    <span className="text-sm mb-0.5">👩‍🏫</span>
-                    <span className="truncate w-full text-center font-bold">Nhân Viên</span>
-                    <span className="text-[10px] opacity-80 font-normal">Thẩm định GA</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail("khachhang@gmail.com");
-                      setPassword("user12345");
-                    }}
-                    className={`flex flex-col items-center justify-center p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                      email === "khachhang@gmail.com"
-                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                        : "bg-card hover:bg-muted text-foreground border-border"
-                    }`}
-                  >
-                    <span className="text-sm mb-0.5">🎓</span>
-                    <span className="truncate w-full text-center font-bold">Khách Hàng</span>
-                    <span className="text-[10px] opacity-80 font-normal">Thi Online</span>
-                  </button>
-                </div>
-              </div>
 
               {error && (
                 <motion.div
