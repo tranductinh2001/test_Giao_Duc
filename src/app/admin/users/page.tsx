@@ -172,7 +172,7 @@ export default function AdminUsersPage() {
       const res = await fetch("/api/admin/users", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: userId, status: nextStatus }),
+        body: JSON.stringify({ id: userId, userId, status: nextStatus }),
       });
       const data = await res.json();
       if (data.success) {
@@ -226,7 +226,7 @@ export default function AdminUsersPage() {
         ? await fetch("/api/admin/users", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: editingUser.id, ...payload }),
+            body: JSON.stringify({ id: editingUser.id, userId: editingUser.id, ...payload }),
           })
         : await fetch("/api/admin/users", {
             method: "POST",
